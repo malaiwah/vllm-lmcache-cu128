@@ -1,6 +1,7 @@
 #!/bin/bash
 HF_TOKEN=
 MODEL=Qwen/Qwen3-4B-AWQ
+MODEL_LEN=32768
 
 podman run --rm -it \
   --device nvidia.com/gpu=all \
@@ -21,4 +22,5 @@ podman run --rm -it \
   --dtype auto \
   --kv-transfer-config '{"kv_connector":"LMCacheConnectorV1","kv_role":"kv_both"}' \
   --enable-auto-tool-choice --tool-call-parser hermes \
-  --rope-scaling '{"rope_type":"yarn","factor":4.0,"original_max_position_embeddings":32768}' --max-model-len 131072 
+  --max-model-len ${MODEL_LEN}
+#  --rope-scaling '{"rope_type":"yarn","factor":4.0,"original_max_position_embeddings":32768}' \
