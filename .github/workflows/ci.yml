@@ -23,7 +23,8 @@ jobs:
 
     - name: Push the container
       run: |
-        podman push malaiwah/vllm-lmcache-cu128:uv312
+        digest=$(podman push malaiwah/vllm-lmcache-cu128:uv312 2>&1 | grep -o 'sha256:[a-f0-9]*' | tail -1)
+        echo "DIGEST=$digest" >> $GITHUB_ENV
 
     - name: Install Cosign
       run: |
@@ -34,7 +35,7 @@ jobs:
     - name: Sign the image
       run: |
         echo "${{ secrets.COSIGN_PRIVATE_KEY }}" > cosign.key
-        cosign sign --key cosign.key --yes --registry-username ${{ secrets.DOCKERHUB_USERNAME }} --registry-password ${{ secrets.DOCKERHUB_TOKEN }} malaiwah/vllm-lmcache-cu128:uv312
+        cosign sign --key cosign.key --yes --registry-username ${{ secrets.DOCKERHUB_USERNAME }} --registry-password ${{ secrets.DOCKERHUB_TOKEN }} malaiwah/vllm-lmcache-cu128@$DIGEST
         rm cosign.key
       env:
         COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
