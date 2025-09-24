@@ -1,3 +1,6 @@
+![CI](https://github.com/malaiwah/vllm-lmcache-cu128/workflows/Build%20and%20Push%20Container/badge.svg)
+![Docker Pulls](https://img.shields.io/docker/pulls/malaiwah/vllm-lmcache-cu128)
+
 # vLLM + LMCache + Yarn Setup (RTX 5070/50-series)
 
 This repository contains instructions and a containerized setup for
