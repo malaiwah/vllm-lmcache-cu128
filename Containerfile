@@ -4,14 +4,15 @@ FROM docker.io/nvidia/cuda@sha256:2a015be069bda4de48d677b6e3f271a2794560c7d788a3
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP_NO_CACHE_DIR=1
-ENV TORCH_CUDA_ARCH_LIST="8.9+PTX 12.0+PTX"
-ENV TRITON_CUDA_ARCH_LIST="89 120"
-ENV FLASHINFER_CUDA_ARCHS="89,120"
+ENV TORCH_CUDA_ARCH_LIST="8.9+PTX;12.0+PTX"
+ENV TRITON_CUDA_ARCH_LIST="89;120"
+ENV FLASHINFER_CUDA_ARCHS="89;120"
 ENV CUDA_ARCH_LIST="8.9+PTX;12.0+PTX"
+ENV NVCC_FLAGS="--threads 10"
+ENV CMAKE_BUILD_PARALLEL_LEVEL=10
 
 ENV PATH=/opt/venv/bin:/root/.local/bin:$PATH
 ENV UV_PYTHON_PREFER_PREBUILT=1
-ENV MAKEFLAGS=-j4
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
