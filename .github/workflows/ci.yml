@@ -24,6 +24,7 @@ jobs:
     - name: Push the container
       run: |
         podman push malaiwah/vllm-lmcache-cu128:uv312
+        apt-get update && apt-get install -y jq
         digest=$(podman inspect malaiwah/vllm-lmcache-cu128:uv312 | jq -r '.RepoDigests[0]' | cut -d'@' -f2)
         echo "DIGEST=$digest" >> $GITHUB_ENV
 
