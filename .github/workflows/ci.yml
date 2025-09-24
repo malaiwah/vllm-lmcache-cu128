@@ -30,8 +30,8 @@ jobs:
 
     - name: Log image size
       run: |
-        size=$(podman inspect malaiwah/vllm-lmcache-cu128:uv312 --format "{{.Size}}" | numfmt --to=iec)
-        echo "Image size: $size"
+        size=$(podman inspect malaiwah/vllm-lmcache-cu128:uv312 --format "{{.Size}}")
+        echo "Image size: $(($size / 1024 / 1024)) MB"
 
     - name: Install Syft
       run: curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
