@@ -29,3 +29,17 @@ jobs:
         file: ./Containerfile
         push: true
         tags: malaiwah/vllm-lmcache-cu128:uv312
+
+    - name: Install Cosign
+      run: |
+        curl -L https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64 -o cosign
+        chmod +x cosign
+        sudo mv cosign /usr/local/bin/
+
+    - name: Sign the image
+      run: |
+        echo "${{ secrets.COSIGN_PRIVATE_KEY }}" > cosign.key
+        cosign sign --key cosign.key malaiwah/vllm-lmcache-cu128:uv312
+        rm cosign.key
+      env:
+        COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
