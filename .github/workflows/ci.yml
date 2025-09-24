@@ -5,6 +5,10 @@ on:
     branches:
       - master
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: self-hosted
@@ -44,6 +48,13 @@ jobs:
       with:
         name: sbom
         path: sbom.spdx.json
+
+    - name: Install Trivy
+      run: |
+        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+    - name: Scan for vulnerabilities
+      run: trivy image --exit-code 1 --no-progress malaiwah/vllm-lmcache-cu128:uv312
 
     - name: Install Cosign
       run: |
