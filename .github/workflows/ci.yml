@@ -23,9 +23,8 @@ jobs:
 
     - name: Push the container
       run: |
-        podman push malaiwah/vllm-lmcache-cu128:uv312
-        apt-get update && apt-get install -y jq
-        digest=$(podman inspect malaiwah/vllm-lmcache-cu128:uv312 | jq -r '.RepoDigests[0]' | cut -d'@' -f2)
+        output=$(podman push malaiwah/vllm-lmcache-cu128:uv312 2>&1)
+        digest=$(echo "$output" | grep -o 'sha256:[a-f0-9]*' | tail -1)
         echo "DIGEST=$digest" >> $GITHUB_ENV
 
     - name: Install Cosign
