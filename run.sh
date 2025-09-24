@@ -8,9 +8,6 @@ podman run --rm -it \
   --ipc=host --network host \
   --security-opt label=disable \
   -e HF_TOKEN="$HF_TOKEN" \
-  -e LMCACHE_LOCAL_CPU=True \
-  -e LMCACHE_MAX_LOCAL_CPU_SIZE=8 \
-  -e LMCACHE_CHUNK_SIZE=256 \
   -e PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
   -e LMCACHE_CONFIG_FILE=/srv/lmcache.yaml \
   -e TORCH_CUDA_ARCH_LIST=12.0 \
