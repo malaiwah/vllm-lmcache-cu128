@@ -17,7 +17,7 @@ podman run --rm -it \
   -e TORCH_CUDA_ARCH_LIST=12.0 \
   -v $HOME/.cache/huggingface:/root/.cache/huggingface:Z \
   -v $PWD/lmcache.yaml:/srv/lmcache.yaml:Z \
-  vllm-lmcache-cu128:uv312 \
+  malaiwah/vllm-lmcache-cu128:uv312 \
   --model "${MODEL}" \
   --gpu-memory-utilization 0.90 \
   --dtype auto \
