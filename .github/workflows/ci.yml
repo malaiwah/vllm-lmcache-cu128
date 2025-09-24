@@ -34,6 +34,7 @@ jobs:
 
     - name: Sign the image
       run: |
+        export DOCKER_CONFIG=~/.config/containers
         echo "${{ secrets.COSIGN_PRIVATE_KEY }}" > cosign.key
         cosign sign --key cosign.key --yes malaiwah/vllm-lmcache-cu128:uv312
         rm cosign.key
