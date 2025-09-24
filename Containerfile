@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM docker.io/nvidia/cuda:12.8.0-cudnn-devel-ubuntu22.04 AS build
+FROM docker.io/nvidia/cuda@sha256:2a015be069bda4de48d677b6e3f271a2794560c7d788a39a18ecf218cae0751d AS build
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP_NO_CACHE_DIR=1
@@ -31,7 +31,7 @@ RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
       --index-url https://download.pytorch.org/whl/nightly/cu128
 
 WORKDIR /opt/app
-RUN git clone --depth=1 https://github.com/vllm-project/vllm.git
+RUN git clone https://github.com/vllm-project/vllm.git && cd vllm && git checkout g690f948e4
 WORKDIR /opt/app/vllm
 
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
@@ -62,7 +62,7 @@ RUN printf "import sys, torch, vllm\nprint('Python:', sys.version.split()[0])\np
 
 RUN /opt/venv/bin/python -m pip freeze > /opt/venv/requirements.freeze.txt
 
-FROM docker.io/nvidia/cuda:12.8.0-cudnn-runtime-ubuntu22.04 AS runtime
+FROM docker.io/nvidia/cuda@sha256:05de765c12d993316f770e8e4396b9516afe38b7c52189bce2d5b64ef812db58 AS runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP_NO_CACHE_DIR=1
