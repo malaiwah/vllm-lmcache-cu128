@@ -9,24 +9,32 @@ ENV JOBS=${JOBS}
 ENV PYTHON_VERSION=3.12
 ENV VLLM_COMMIT=8938774c79f185035bc3de5f19cfc7abaa242a5a
 ENV TORCH_INDEX_URL=https://download.pytorch.org/whl/nightly/cu128
+# 12.8.1-cudnn-devel-ubuntu22.04 (24.04 exists)
+# original was FROM docker.io/nvidia/cuda:12.8.0-cudnn-devel-ubuntu22.04 AS build
 ENV CUDA_BUILD_DIGEST=sha256:2a015be069bda4de48d677b6e3f271a2794560c7d788a39a18ecf218cae0751d
+# 12.8.1-cudnn-runtime-ubuntu22.04 (24.04 exists as well)
 ENV CUDA_RUNTIME_DIGEST=sha256:05de765c12d993316f770e8e4396b9516afe38b7c52189bce2d5b64ef812db58
 
 # toolchain-wide limits
-ENV MAKEFLAGS="-j${JOBS}"
-ENV CMAKE_BUILD_PARALLEL_LEVEL="${JOBS}"
-ENV NINJAFLAGS="-j${JOBS}"
-ENV NINJA_NUM_CORES="${JOBS}"
-ENV MAX_JOBS="${JOBS}"
-ENV CMAKE_CUDA_FLAGS="--threads=${JOBS}"
-ENV NVCC_THREADS="${JOBS}"
+#ENV MAKEFLAGS="-j${JOBS}"
+#ENV CMAKE_BUILD_PARALLEL_LEVEL="${JOBS}"
+#ENV NINJAFLAGS="-j${JOBS}"
+#ENV NINJA_NUM_CORES="${JOBS}"
+#ENV MAX_JOBS="${JOBS}"
+#ENV CMAKE_CUDA_FLAGS="--threads=${JOBS}"
+#ENV NVCC_THREADS="${JOBS}"
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP_NO_CACHE_DIR=1
-ENV TORCH_CUDA_ARCH_LIST="8.9+PTX;12.0+PTX"
-ENV TRITON_CUDA_ARCH_LIST="89;120"
-ENV FLASHINFER_CUDA_ARCHS="89;120"
-ENV CUDA_ARCH_LIST="8.9+PTX;12.0+PTX"
+#ENV TORCH_CUDA_ARCH_LIST="8.9+PTX;12.0+PTX"
+#ENV TRITON_CUDA_ARCH_LIST="89;120"
+#ENV FLASHINFER_CUDA_ARCHS="89;120"
+#ENV CUDA_ARCH_LIST="8.9+PTX;12.0+PTX"
+
+ENV TORCH_CUDA_ARCH_LIST="12.0+PTX"
+ENV TRITON_CUDA_ARCH_LIST="120"
+ENV FLASHINFER_CUDA_ARCHS="120"
+ENV CUDA_ARCH_LIST="12.0+PTX"
 
 ENV PATH=/opt/venv/bin:/root/.local/bin:$PATH
 ENV UV_PYTHON_PREFER_PREBUILT=1
@@ -90,6 +98,14 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       build-essential \
       cuda-nvcc-12-8 \
       libcurand-dev-12-8 \
+    && apt-get clean
+
+# add the toolkit for fp4/fp8 <cublasLt.h>
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends --allow-change-held-packages \
+      cuda-toolkit-12-8=12.8.0-1 \
+      libcublas-12-8=12.8.4.1-1 \
     && apt-get clean
 
 # bring both the venv AND uv’s installed Python
