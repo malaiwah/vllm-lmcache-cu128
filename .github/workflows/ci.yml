@@ -25,7 +25,7 @@ jobs:
       run: |
         podman push malaiwah/vllm-lmcache-cu128:uv312
         apt-get update && apt-get install -y skopeo jq
-        digest=$(skopeo inspect docker://malaiwah/vllm-lmcache-cu128:uv312 | jq -r '.Digest')
+        digest=$(skopeo inspect --creds ${{ secrets.DOCKERHUB_USERNAME }}:${{ secrets.DOCKERHUB_TOKEN }} docker://malaiwah/vllm-lmcache-cu128:uv312 | jq -r '.Digest')
         echo "DIGEST=$digest" >> $GITHUB_ENV
 
     - name: Install Cosign
