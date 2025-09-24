@@ -11,6 +11,7 @@ ENV CUDA_ARCH_LIST="8.9+PTX;12.0+PTX"
 
 ENV PATH=/opt/venv/bin:/root/.local/bin:$PATH
 ENV UV_PYTHON_PREFER_PREBUILT=1
+ENV MAKEFLAGS=-j4
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
@@ -31,6 +32,7 @@ RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
       --index-url https://download.pytorch.org/whl/nightly/cu128
 
 WORKDIR /opt/app
+COPY requirements.txt /tmp/requirements.txt
 RUN git clone https://github.com/vllm-project/vllm.git && cd vllm && git checkout g690f948e4
 WORKDIR /opt/app/vllm
 
@@ -39,21 +41,7 @@ RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     uv pip install --python /opt/venv/bin/python .
 
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
-    uv pip install --python /opt/venv/bin/python -U lmcache && \
-    uv pip install --python /opt/venv/bin/python --no-binary lmcache --force-reinstall "lmcache==0.3.6"
-
-RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
-    uv pip install --python /opt/venv/bin/python -U flashinfer-python && \
-    uv pip install --python /opt/venv/bin/python --no-binary flashinfer-python --force-reinstall flashinfer-python
-
-# Torch warns because it wants the new meta-package.
-RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
-    uv pip install --python /opt/venv/bin/python nvidia-ml-py
-
-# Pin versions so vLLM+Numba are compatible
-RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
-    uv pip install --python /opt/venv/bin/python \
-      "numpy==2.2.2" "numba==0.61.2" "llvmlite==0.44.0" "setuptools==79.0.0"
+    uv pip install --python /opt/venv/bin/python -r /tmp/requirements.txt --no-binary lmcache --no-binary flashinfer-python --force-reinstall lmcache --force-reinstall flashinfer-python
 
 # Optional: verify dependency health (non-fatal)
 RUN /opt/venv/bin/python -m pip check || true
