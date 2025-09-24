@@ -23,7 +23,8 @@ jobs:
 
     - name: Push the container
       run: |
-        digest=$(podman push malaiwah/vllm-lmcache-cu128:uv312 2>&1 | grep -o 'sha256:[a-f0-9]*' | tail -1)
+        podman push malaiwah/vllm-lmcache-cu128:uv312
+        digest=$(podman inspect malaiwah/vllm-lmcache-cu128:uv312 | jq -r '.RepoDigests[0]' | cut -d'@' -f2)
         echo "DIGEST=$digest" >> $GITHUB_ENV
 
     - name: Install Cosign
