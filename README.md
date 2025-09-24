@@ -15,7 +15,7 @@ utilization.
 -   **Yarn** models for extended context (128k+ tokens)
 -   Built with **CUDA 12.8** and **PyTorch 2.5+**
 -   Uses **Podman/Docker** containers
--   Tuned for **RTX consumer GPUs (16GB VRAM)**
+-   Tuned for **RTX consumer GPUs (Ada SM89 and Blackwell SM120, 16GB+ VRAM)**
 
 ------------------------------------------------------------------------
 
@@ -83,6 +83,7 @@ This ensures the image integrity and authenticity.
 -   Recommended: use **fast NVMe SSDs** for LMCache spillover.\
 -   If running dual GPUs, remember consumer RTX cards **do not have
     NVLink**. Communication is via PCIe only.
+-   CUDA arch support: **Ada (SM89, 4070/4080/5070)** and **Blackwell (SM120, 50-series)** with precompiled cubins + PTX fallback for future GPUs.
 
 ------------------------------------------------------------------------
 
