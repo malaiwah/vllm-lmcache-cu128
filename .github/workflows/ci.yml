@@ -46,12 +46,19 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
+    - name: Install Cosign
+      run: |
+        curl -L https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64 -o cosign
+        chmod +x cosign
+        sudo mv cosign /usr/local/bin/
+
+    - name: Verify signature
+      run: |
+        cosign verify --key cosign.pub malaiwah/vllm-lmcache-cu128:uv312
+
     - name: Run test
       run: |
         chmod +x test.sh
         ./test.sh
-
-    - name: Commit test output
-      run: |
-        git add test_output.txt
-        git commit -m "Add test output from model inference" || echo "No changes to commit"
+        echo "Test output:"
+        cat test_output.txt

@@ -41,6 +41,18 @@ podman pull malaiwah/vllm-lmcache-cu128:uv312
 
 See the example run script (`run.sh`)
 
+## 🧪 Testing
+
+To run tests locally:
+
+``` bash
+chmod +x test.sh
+./test.sh
+cat test_output.txt
+```
+
+This will perform inference on the model and display the output.
+
 ------------------------------------------------------------------------
 
 ## 🔐 Verifying Signatures
