@@ -38,3 +38,20 @@ jobs:
         rm cosign.key
       env:
         COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+
+  test:
+    runs-on: self-hosted
+    needs: build
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Run test
+      run: |
+        chmod +x test.sh
+        ./test.sh
+
+    - name: Commit test output
+      run: |
+        git add test_output.txt
+        git commit -m "Add test output from model inference" || echo "No changes to commit"
