@@ -16,7 +16,7 @@ podman run --rm \
   -e TORCH_CUDA_ARCH_LIST=12.0 \
   -v $HOME/.cache/huggingface:/root/.cache/huggingface:Z \
   -v $PWD/lmcache.yaml:/srv/lmcache.yaml:Z \
-  --entrypoint python \
+  --entrypoint /opt/venv/bin/python \
   malaiwah/vllm-lmcache-cu128:uv312 \
   -c "
 from vllm import LLM
