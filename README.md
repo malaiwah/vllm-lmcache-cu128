@@ -29,11 +29,32 @@ podman build -t vllm-lmcache-cu128:uv312 -f Containerfile .
 The container uses `uv` to manage Python environments, so you don't have
 to pre-install dependencies.
 
+Alternatively, pull the pre-built signed image from [Docker Hub](https://hub.docker.com/r/malaiwah/vllm-lmcache-cu128):
+
+``` bash
+podman pull malaiwah/vllm-lmcache-cu128:uv312
+```
+
 ------------------------------------------------------------------------
 
 ## ▶️ Running
 
 See the example run script (`run.sh`)
+
+------------------------------------------------------------------------
+
+## 🔐 Verifying Signatures
+
+The pre-built images are signed with Cosign. To verify:
+
+1. Install Cosign: `curl -L https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64 -o cosign && chmod +x cosign && sudo mv cosign /usr/local/bin/`
+
+2. Verify the signature:
+   ``` bash
+   cosign verify --key cosign.pub malaiwah/vllm-lmcache-cu128:uv312
+   ```
+
+This ensures the image integrity and authenticity.
 
 ------------------------------------------------------------------------
 
