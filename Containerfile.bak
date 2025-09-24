@@ -1,0 +1,51 @@
+FROM nvidia/cuda:12.8.0-cudnn-devel-ubuntu22.04 AS build
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PIP_NO_CACHE_DIR=1
+ENV TORCH_CUDA_ARCH_LIST=12.0
+ENV PATH=/opt/venv/bin:/root/.local/bin:$PATH
+ENV UV_PYTHON_PREFER_PREBUILT=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git build-essential curl ca-certificates pkg-config python3 python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+
+RUN uv venv --python 3.12 /opt/venv
+
+RUN uv pip install --python /opt/venv/bin/python -U pip wheel setuptools
+
+RUN uv pip install --python /opt/venv/bin/python --pre torch torchvision \
+    --index-url https://download.pytorch.org/whl/nightly/cu128
+
+RUN uv pip install --python /opt/venv/bin/python flashinfer-python
+
+WORKDIR /opt/app
+RUN git clone --depth=1 https://github.com/vllm-project/vllm.git
+WORKDIR /opt/app/vllm
+RUN uv pip install --python /opt/venv/bin/python -e .
+
+RUN uv pip install --python /opt/venv/bin/python -U lmcache
+
+RUN /opt/venv/bin/python - <<'PY'
+import sys, torch, vllm
+print("Python:", sys.version.split()[0])
+print("Torch:", torch.__version__, "CUDA:", torch.version.cuda)
+print("vLLM:", vllm.__version__)
+PY
+
+FROM nvidia/cuda:12.8.0-cudnn-runtime-ubuntu22.04 AS runtime
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PIP_NO_CACHE_DIR=1
+ENV HF_HOME=/root/.cache/huggingface
+ENV PATH=/opt/venv/bin:/root/.local/bin:$PATH
+
+COPY --from=build /opt/venv /opt/venv
+
+WORKDIR /srv
+VOLUME ["/root/.cache/huggingface"]
+
+ENTRYPOINT ["/opt/venv/bin/python", "-m", "vllm.entrypoints.openai.api_server"]
+
