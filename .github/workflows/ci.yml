@@ -60,7 +60,10 @@ jobs:
         COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
 
     - name: Log build time
-      run: echo "Build time: $(($(date +%s) - START_TIME)) seconds"
+      run: |
+        end_time=$(date +%s)
+        build_time=$((end_time - START_TIME))
+        echo "Build time: $build_time seconds"
 
   test:
     runs-on: self-hosted
