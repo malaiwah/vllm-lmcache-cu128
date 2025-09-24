@@ -16,8 +16,9 @@ podman run --rm \
   -e TORCH_CUDA_ARCH_LIST=12.0 \
   -v $HOME/.cache/huggingface:/root/.cache/huggingface:Z \
   -v $PWD/lmcache.yaml:/srv/lmcache.yaml:Z \
+  --entrypoint python \
   malaiwah/vllm-lmcache-cu128:uv312 \
-  python -c "
+  -c "
 from vllm import LLM
 llm = LLM(model='${MODEL}', dtype='auto', gpu_memory_utilization=0.9, max_model_len=${MODEL_LEN}, kv_transfer_config={'kv_connector':'LMCacheConnectorV1','kv_role':'kv_both'})
 output = llm.generate('Who are you? Describe yourself in about 100 words.')
