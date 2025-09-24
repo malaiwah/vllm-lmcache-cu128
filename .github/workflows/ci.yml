@@ -34,7 +34,7 @@ jobs:
     - name: Sign the image
       run: |
         echo "${{ secrets.COSIGN_PRIVATE_KEY }}" > cosign.key
-        cosign sign --key cosign.key malaiwah/vllm-lmcache-cu128:uv312
+        cosign sign --key cosign.key --yes malaiwah/vllm-lmcache-cu128:uv312
         rm cosign.key
       env:
         COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
