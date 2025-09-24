@@ -23,11 +23,14 @@ ENV CUDA_ARCH_LIST="8.9+PTX;12.0+PTX"
 
 ENV PATH=/opt/venv/bin:/root/.local/bin:$PATH
 ENV UV_PYTHON_PREFER_PREBUILT=1
+ENV UV_LINK_MODE=copy
+ENV CC=ccache
+ENV CXX=ccache
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
-      git build-essential curl ca-certificates pkg-config python3 python3-pip ninja-build \
+      git build-essential curl ca-certificates pkg-config python3 python3-pip ninja-build ccache \
     && apt-get clean
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -44,14 +47,17 @@ RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
 
 WORKDIR /opt/app
 COPY requirements.txt /tmp/requirements.txt
-RUN git clone https://github.com/vllm-project/vllm.git && cd vllm && git checkout 8938774c79f185035bc3de5f19cfc7abaa242a5a
+RUN git clone https://github.com/vllm-project/vllm.git && cd vllm && git config advice.detachedHead false && git checkout 8938774c79f185035bc3de5f19cfc7abaa242a5a
 WORKDIR /opt/app/vllm
 
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
+    --mount=type=cache,target=/root/.ccache,sharing=locked \
     uv pip install --python /opt/venv/bin/python .
 
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
+    --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
+    --mount=type=cache,target=/root/.ccache,sharing=locked \
     uv pip install --python /opt/venv/bin/python -r /tmp/requirements.txt --no-binary lmcache --no-binary flashinfer-python --force-reinstall lmcache --force-reinstall flashinfer-python
 
 # Optional: verify dependency health (non-fatal)
