@@ -40,19 +40,6 @@ jobs:
         size=$(podman inspect malaiwah/vllm-lmcache-cu128:uv312 --format "{{.Size}}")
         echo "Image size: $(($size / 1024 / 1024)) MB"
 
-    - name: Install Syft
-      run: |
-        curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s
-
-    - name: Generate SBOM
-      run: bin/syft malaiwah/vllm-lmcache-cu128:uv312 -o spdx-json > sbom.spdx.json
-
-    - name: Upload SBOM
-      uses: actions/upload-artifact@v4
-      with:
-        name: sbom
-        path: sbom.spdx.json
-
     - name: Install Trivy
       run: |
         curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s
