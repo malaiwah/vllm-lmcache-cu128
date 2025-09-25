@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:1.7
 
-ARG CUDA_BUILD_DIGEST=sha256:2a015be069bda4de48d677b6e3f271a2794560c7d788a39a18ecf218cae0751d
-ARG CUDA_RUNTIME_DIGEST=sha256:05de765c12d993316f770e8e4396b9516afe38b7c52189bce2d5b64ef812db58
+ARG CUDA_BUILD_DIGEST=sha256:468c101db63b1fd84b05dd082f8bda87326c86ff5f7356b5e5aa37f9b8585ca5
+ARG CUDA_RUNTIME_DIGEST=sha256:2189eb90b6f7a93003344a5e9d45aeed7cd6158bffb41d9fbe8b1b1a624533af
 
-FROM docker.io/nvidia/cuda:12.8.1-cudnn-devel-ubuntu22.04@${CUDA_BUILD_DIGEST} AS build
+FROM docker.io/nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04 AS build
 
 ARG JOBS=16
 ENV JOBS=${JOBS}
@@ -30,18 +30,18 @@ ENV PATH=/opt/venv/bin:/root/.local/bin:$PATH
 ENV UV_PYTHON_PREFER_PREBUILT=1
 ENV UV_LINK_MODE=copy
 
-# Tell CMake to launch compilers via ccache, also CUDA through ccache (needs ccache ≥ 4.5+):
-ENV CMAKE_ARGS="-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_CUDA_COMPILER_LAUNCHER=ccache"
+# Tell CMake to launch compilers via sccache
+ENV CMAKE_ARGS="-DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_CUDA_COMPILER_LAUNCHER=sccache"
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
-      git build-essential curl ca-certificates pkg-config python3 python3-pip ninja-build ccache \
+      git build-essential curl ca-certificates pkg-config python3 python3-pip python3-dev ninja-build sccache cmake \
     && apt-get clean
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
-RUN uv venv --python ${PYTHON_VERSION} /opt/venv
+RUN uv venv --python ${PYTHON_VERSION} --managed-python /opt/venv
 
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
@@ -88,7 +88,7 @@ RUN printf "import sys, torch, vllm, numpy as np, numba, llvmlite, setuptools\np
 
 RUN /opt/venv/bin/python -m pip freeze > /opt/venv/requirements.freeze.txt
 
-FROM docker.io/nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04@${CUDA_RUNTIME_DIGEST} AS runtime
+FROM docker.io/nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04 AS runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP_NO_CACHE_DIR=1
