@@ -41,7 +41,9 @@ jobs:
         echo "Image size: $(($size / 1024 / 1024)) MB"
 
     - name: Install Syft
-      run: curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+      run: |
+        curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh
+        sudo mv syft /usr/local/bin/
 
     - name: Generate SBOM
       run: syft malaiwah/vllm-lmcache-cu128:uv312 -o spdx-json > sbom.spdx.json
@@ -54,7 +56,8 @@ jobs:
 
     - name: Install Trivy
       run: |
-        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh
+        sudo mv trivy /usr/local/bin/
 
     - name: Scan for vulnerabilities
       run: trivy image --exit-code 1 --no-progress malaiwah/vllm-lmcache-cu128:uv312
@@ -100,5 +103,9 @@ jobs:
       run: |
         chmod +x test.sh
         ./test.sh
-        echo "Test output:"
-        cat test_output.txt
+
+    - name: Upload Test Output
+      uses: actions/upload-artifact@v4
+      with:
+        name: test_output
+        path: test_output.txt
