@@ -1,19 +1,19 @@
 # syntax=docker/dockerfile:1.7
 
-FROM docker.io/nvidia/cuda@${CUDA_BUILD_DIGEST} AS build
+ARG CUDA_BUILD_DIGEST=sha256:2a015be069bda4de48d677b6e3f271a2794560c7d788a39a18ecf218cae0751d
+ARG CUDA_RUNTIME_DIGEST=sha256:05de765c12d993316f770e8e4396b9516afe38b7c52189bce2d5b64ef812db58
+
+FROM docker.io/nvidia/cuda:12.8.1-cudnn-devel-ubuntu22.04@${CUDA_BUILD_DIGEST} AS build
 
 ARG JOBS=10
 ENV JOBS=${JOBS}
+ENV CUDA_BUILD_DIGEST=${CUDA_BUILD_DIGEST}
+ENV CUDA_RUNTIME_DIGEST=${CUDA_RUNTIME_DIGEST}
 
 # Version pins
 ENV PYTHON_VERSION=3.12
 ENV VLLM_COMMIT=8938774c79f185035bc3de5f19cfc7abaa242a5a
 ENV TORCH_INDEX_URL=https://download.pytorch.org/whl/nightly/cu128
-# 12.8.1-cudnn-devel-ubuntu22.04 (24.04 exists)
-# original was FROM docker.io/nvidia/cuda:12.8.0-cudnn-devel-ubuntu22.04 AS build
-ENV CUDA_BUILD_DIGEST=sha256:2a015be069bda4de48d677b6e3f271a2794560c7d788a39a18ecf218cae0751d
-# 12.8.1-cudnn-runtime-ubuntu22.04 (24.04 exists as well)
-ENV CUDA_RUNTIME_DIGEST=sha256:05de765c12d993316f770e8e4396b9516afe38b7c52189bce2d5b64ef812db58
 
 # toolchain-wide limits
 #ENV MAKEFLAGS="-j${JOBS}"
@@ -39,8 +39,10 @@ ENV CUDA_ARCH_LIST="12.0+PTX"
 ENV PATH=/opt/venv/bin:/root/.local/bin:$PATH
 ENV UV_PYTHON_PREFER_PREBUILT=1
 ENV UV_LINK_MODE=copy
-ENV CC=ccache
-ENV CXX=ccache
+
+# Tell CMake to launch compilers via ccache, also CUDA through ccache (needs ccache ≥ 4.5+):
+ENV CMAKE_ARGS="-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
+ENV CMAKE_ARGS="$CMAKE_ARGS -DCMAKE_CUDA_COMPILER_LAUNCHER=ccache"
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
@@ -73,16 +75,25 @@ RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.ccache,sharing=locked \
-    uv pip install --python /opt/venv/bin/python -r /tmp/requirements.txt --no-binary lmcache --no-binary flashinfer-python --force-reinstall lmcache --force-reinstall flashinfer-python
+    uv pip install --python /opt/venv/bin/python -r /tmp/requirements.txt && \
+    uv pip install --python /opt/venv/bin/python --no-binary lmcache --force-reinstall lmcache && \
+    uv pip install --python /opt/venv/bin/python --no-binary flashinfer-python --force-reinstall flashinfer-python
+
+# Pin versions so vLLM+Numba are compatible
+RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
+    --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
+    --mount=type=cache,target=/root/.ccache,sharing=locked \
+    uv pip install --python /opt/venv/bin/python \
+      "numpy==2.2.2" "numba==0.61.2" "llvmlite==0.44.0" "setuptools==79.0.0"
 
 # Optional: verify dependency health (non-fatal)
 RUN /opt/venv/bin/python -m pip check || true
 
-RUN printf "import sys, torch, vllm, numpy as np, numba, llvmlite, setuptools, lmcache\nprint('Python:', sys.version.split()[0])\nprint('Torch:', torch.__version__, 'CUDA:', torch.version.cuda)\nprint('vLLM:', vllm.__version__)\nprint('NumPy:', np.__version__)\nprint('Numba:', numba.__version__)\nprint('LLVMLite:', llvmlite.__version__)\nprint('Setuptools:', setuptools.__version__)\nprint('LMCache:', lmcache.__version__)\n" | /opt/venv/bin/python -
+RUN printf "import sys, torch, vllm, numpy as np, numba, llvmlite, setuptools\nprint('Python:', sys.version.split()[0])\nprint('Torch:', torch.__version__, 'CUDA:', torch.version.cuda)\nprint('vLLM:', vllm.__version__)\nprint('NumPy:', np.__version__)\nprint('Numba:', numba.__version__)\nprint('LLVMLite:', llvmlite.__version__)\nprint('Setuptools:', setuptools.__version__)\n" | /opt/venv/bin/python -
 
 RUN /opt/venv/bin/python -m pip freeze > /opt/venv/requirements.freeze.txt
 
-FROM docker.io/nvidia/cuda@${CUDA_RUNTIME_DIGEST} AS runtime
+FROM docker.io/nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04@${CUDA_RUNTIME_DIGEST} AS runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP_NO_CACHE_DIR=1
@@ -90,6 +101,8 @@ ENV HF_HOME=/root/.cache/huggingface
 ENV PATH=/opt/venv/bin:/root/.local/bin:$PATH
 ENV CC=gcc
 ENV CXX=g++
+
+ENV PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 # add a compiler for Triton/TorchInductor JIT (small, safe)
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
