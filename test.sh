@@ -16,7 +16,7 @@ podman run --rm \
   malaiwah/vllm-lmcache-cu128:uv312 \
   -c "
 from vllm import LLM, SamplingParams
-llm = LLM(model='${MODEL}', dtype='auto', max_model_len=${MODEL_LEN}, kv_transfer_config={'kv_connector':'LMCacheConnectorV1','kv_role':'kv_both'})
+llm = LLM(model='${MODEL}', enforce_eager=True, dtype='auto', max_model_len=${MODEL_LEN}, kv_transfer_config={'kv_connector':'LMCacheConnectorV1','kv_role':'kv_both'})
 sampling_params = SamplingParams(max_tokens=500)
 output = llm.generate(['Who are you? Describe yourself in about 100 words.'], sampling_params=sampling_params)
 print(output[0].outputs[0].text)
