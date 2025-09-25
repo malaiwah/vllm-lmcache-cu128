@@ -69,6 +69,7 @@ jobs:
 
     - name: Install Cosign
       run: |
+        mkdir -p bin
         curl -L https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64 -o bin/cosign
         chmod +x bin/cosign
 
