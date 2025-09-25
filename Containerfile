@@ -5,7 +5,7 @@ ARG CUDA_RUNTIME_DIGEST=sha256:05de765c12d993316f770e8e4396b9516afe38b7c52189bce
 
 FROM docker.io/nvidia/cuda:12.8.1-cudnn-devel-ubuntu22.04@${CUDA_BUILD_DIGEST} AS build
 
-ARG JOBS=10
+ARG JOBS=16
 ENV JOBS=${JOBS}
 ENV CUDA_BUILD_DIGEST=${CUDA_BUILD_DIGEST}
 ENV CUDA_RUNTIME_DIGEST=${CUDA_RUNTIME_DIGEST}
@@ -15,14 +15,9 @@ ENV PYTHON_VERSION=3.12
 ENV VLLM_COMMIT=8938774c79f185035bc3de5f19cfc7abaa242a5a
 ENV TORCH_INDEX_URL=https://download.pytorch.org/whl/nightly/cu128
 
-# toolchain-wide limits
-#ENV MAKEFLAGS="-j${JOBS}"
-#ENV CMAKE_BUILD_PARALLEL_LEVEL="${JOBS}"
-#ENV NINJAFLAGS="-j${JOBS}"
-#ENV NINJA_NUM_CORES="${JOBS}"
-#ENV MAX_JOBS="${JOBS}"
-#ENV CMAKE_CUDA_FLAGS="--threads=${JOBS}"
-#ENV NVCC_THREADS="${JOBS}"
+# Limits to keep memory usage under control
+ENV CMAKE_BUILD_PARALLEL_LEVEL="${JOBS}"
+ENV MAX_JOBS="${JOBS}"
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP_NO_CACHE_DIR=1
@@ -36,8 +31,7 @@ ENV UV_PYTHON_PREFER_PREBUILT=1
 ENV UV_LINK_MODE=copy
 
 # Tell CMake to launch compilers via ccache, also CUDA through ccache (needs ccache ≥ 4.5+):
-ENV CMAKE_ARGS="-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
-ENV CMAKE_ARGS="$CMAKE_ARGS -DCMAKE_CUDA_COMPILER_LAUNCHER=ccache"
+ENV CMAKE_ARGS="-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_CUDA_COMPILER_LAUNCHER=ccache"
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
@@ -59,18 +53,24 @@ RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
 
 WORKDIR /opt/app
 COPY requirements.txt /tmp/requirements.txt
+RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
+    --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
+    --mount=type=cache,target=/root/.ccache,sharing=locked \
+    uv pip install --python /opt/venv/bin/python -r /tmp/requirements.txt
+
 RUN git clone https://github.com/vllm-project/vllm.git && cd vllm && git config advice.detachedHead false && git checkout ${VLLM_COMMIT}
 WORKDIR /opt/app/vllm
 
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.ccache,sharing=locked \
-    uv pip install --python /opt/venv/bin/python --verbose .
+    uv pip install --python /opt/venv/bin/python --no-build-isolation --verbose .
 
+WORKDIR /opt/app
+# Force recompile for Blackwell support
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.ccache,sharing=locked \
-    uv pip install --python /opt/venv/bin/python -r /tmp/requirements.txt && \
     uv pip install --python /opt/venv/bin/python --no-binary lmcache --force-reinstall lmcache && \
     uv pip install --python /opt/venv/bin/python --no-binary flashinfer-python --force-reinstall flashinfer-python
 
@@ -81,7 +81,7 @@ RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     uv pip install --python /opt/venv/bin/python \
       "numpy==2.2.2" "numba==0.61.2" "llvmlite==0.44.0" "setuptools==79.0.0"
 
-# Optional: verify dependency health (non-fatal)
+# Verify dependency health (non-fatal)
 RUN /opt/venv/bin/python -m pip check || true
 
 RUN printf "import sys, torch, vllm, numpy as np, numba, llvmlite, setuptools\nprint('Python:', sys.version.split()[0])\nprint('Torch:', torch.__version__, 'CUDA:', torch.version.cuda)\nprint('vLLM:', vllm.__version__)\nprint('NumPy:', np.__version__)\nprint('Numba:', numba.__version__)\nprint('LLVMLite:', llvmlite.__version__)\nprint('Setuptools:', setuptools.__version__)\n" | /opt/venv/bin/python -
