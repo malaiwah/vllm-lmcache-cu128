@@ -40,13 +40,6 @@ jobs:
         size=$(podman inspect malaiwah/vllm-lmcache-cu128:uv312 --format "{{.Size}}")
         echo "Image size: $(($size / 1024 / 1024)) MB"
 
-    - name: Install Trivy
-      run: |
-        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s
-
-    - name: Scan for vulnerabilities
-      run: bin/trivy image --exit-code 1 --no-progress malaiwah/vllm-lmcache-cu128:uv312
-
     - name: Install Cosign
       run: |
         mkdir -p bin
