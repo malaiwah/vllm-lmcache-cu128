@@ -42,7 +42,7 @@ jobs:
 
     - name: Install Syft
       run: |
-        curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh
+        curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s
         sudo mv syft /usr/local/bin/
 
     - name: Generate SBOM
@@ -56,7 +56,7 @@ jobs:
 
     - name: Install Trivy
       run: |
-        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh
+        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s
         sudo mv trivy /usr/local/bin/
 
     - name: Scan for vulnerabilities
