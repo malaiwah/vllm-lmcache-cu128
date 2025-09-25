@@ -9,9 +9,7 @@ podman run --rm \
   --security-opt label=disable \
   -e HF_TOKEN="$HF_TOKEN" \
   -e PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
-  -e LMCACHE_CONFIG_FILE=/srv/lmcache.yaml \
   -v $HOME/.cache/huggingface:/root/.cache/huggingface:Z \
-  -v $PWD/lmcache.yaml:/srv/lmcache.yaml:Z \
   --entrypoint /opt/venv/bin/python \
   malaiwah/vllm-lmcache-cu128:uv312 \
   -c "
