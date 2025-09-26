@@ -9,3 +9,4 @@ bitsandbytes>=0.46.1
 torchao>=0.10.0
 bitblas>=0.1.0
 transformer-engine>=1.10.0
+litellm
