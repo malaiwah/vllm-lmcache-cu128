@@ -1,8 +1,9 @@
 # lmcache.yaml
 chunk_size: 256
 local_cpu: true
-max_local_cpu_size: '5.0'
+max_local_cpu_size: '32.0'
 local_disk: /root/.cache/lmcache
-max_local_disk_size: '10.0'
+max_local_disk_size: '64.0'
+save_decode_cache: false
 save_unfull_chunk: true
 cache_policy: LRU
