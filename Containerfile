@@ -4,6 +4,8 @@ ARG CUDA_BUILD_DIGEST=sha256:468c101db63b1fd84b05dd082f8bda87326c86ff5f7356b5e5a
 ARG CUDA_RUNTIME_DIGEST=sha256:2189eb90b6f7a93003344a5e9d45aeed7cd6158bffb41d9fbe8b1b1a624533af
 
 FROM docker.io/nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04 AS build
+# Update packages, except the pinned ones
+RUN apt-get update && apt-get dist-upgrade -y && apt-get clean
 
 ARG JOBS=16
 ENV JOBS=${JOBS}
@@ -89,6 +91,8 @@ RUN printf "import sys, torch, vllm, numpy as np, numba, llvmlite, setuptools\np
 RUN /opt/venv/bin/python -m pip freeze > /opt/venv/requirements.freeze.txt
 
 FROM docker.io/nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04 AS runtime
+# Update packages, except the pinned ones
+RUN apt-get update && apt-get dist-upgrade -y && apt-get clean
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP_NO_CACHE_DIR=1
