@@ -97,8 +97,6 @@ ENV PATH=/opt/venv/bin:/root/.local/bin:$PATH
 ENV CC=gcc
 ENV CXX=g++
 
-ENV PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-
 # add a compiler for Triton/TorchInductor JIT (small, safe)
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
