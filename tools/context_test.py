@@ -1,10 +1,11 @@
 import requests
 
 API_URL = "http://localhost:8000/v1/chat/completions"
-MODEL = "Qwen/Qwen2.5-Coder-14B-Instruct-AWQ"
+API_KEY = "LOCAL-ONLY-KEY"
+MODEL = "local/vllm"
 
 # Build a long filler (≈100k tokens when tokenized)
-filler = "FILLER TEXT. " * 24000
+filler = "FILLER TEXT. " * 6000
 
 # Construct the request
 payload = {
@@ -21,6 +22,8 @@ payload = {
     "max_tokens": 20
 }
 
-resp = requests.post(API_URL, json=payload)
+headers = {"Authorization": f"Bearer {API_KEY}"}
+
+resp = requests.post(API_URL, json=payload, headers=headers)
 resp.raise_for_status()
 print(resp.json())

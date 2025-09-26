@@ -1,0 +1,19 @@
+# LiteLLM Proxy config for polyglot tool call normalization
+
+general_settings:
+  # Dummy key for keeping tools happy, customize via volume mount if needed
+  master_key: "LOCAL-ONLY-KEY"
+  # Fail fast but don't crash if a backend is down
+  ignore_invalid_deployments: true
+
+model_list:
+  # Local vLLM (Qwen or any model)
+  - model_name: local/vllm
+    litellm_params:
+      model: openai/vllm
+      api_base: http://127.0.0.1:9000/vllm/vllm/v1
+      api_key: "EMPTY"
+
+litellm_settings:
+  # Register the polyglot callback to normalize tool calls
+  callbacks: polyglot_tools_stream_handler.proxy_handler_instance

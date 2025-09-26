@@ -100,6 +100,7 @@ ENV HF_HOME=/root/.cache/huggingface
 ENV PATH=/opt/venv/bin:/root/.local/bin:$PATH
 ENV CC=gcc
 ENV CXX=g++
+ENV PYTHONPATH=/opt
 
 # add a compiler for Triton/TorchInductor JIT (small, safe)
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -108,6 +109,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       build-essential \
       cuda-nvcc-12-8 \
       libcurand-dev-12-8 \
+      logrotate \
+      supervisor \
+      nginx \
     && apt-get clean
 
 # add the toolkit for fp4/fp8 <cublasLt.h>
@@ -122,16 +126,37 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 COPY --from=build /opt/venv /opt/venv
 COPY --from=build /root/.local /root/.local
 
+# Create runtime directories for Unix domain sockets and logs
+RUN mkdir -p /run/vllm /run/nginx /run/litellm /var/log/supervisor /srv/litellm
+
+# Monkey patch, this should be in the previous stage (requirements.txt) instead -- TODO
+RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
+    --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
+    --mount=type=cache,target=/root/.ccache,sharing=locked \
+    uv pip install --python /opt/venv/bin/python \
+      "litellm[proxy]"
+
+# Copy configurations and polyglot handler
+COPY polyglot/polyglot_tools_stream_handler.py /srv/litellm/polyglot_tools_stream_handler.py
+COPY config/supervisord.conf /etc/supervisor/supervisord.conf
+COPY config/nginx.conf /etc/nginx/nginx.conf
+COPY config/logrotate.d/nginx /etc/logrotate.d/nginx
+COPY config/litellm.yaml /srv/litellm/litellm.yaml
+
 WORKDIR /srv
 VOLUME ["/root/.cache/huggingface"]
 
-LABEL org.opencontainers.image.title="vLLM + LMCache (Ada/Blackwell, cu128, UV 3.12)"
+LABEL org.opencontainers.image.title="vLLM + LMCache + LiteLLM Proxy (Ada/Blackwell, cu128, UV 3.12)"
 LABEL org.opencontainers.image.source="https://github.com/malaiwah/vllm-lmcache-cu128"
-LABEL org.opencontainers.image.description="vLLM built for RTX 40/50 (sm_89/120) with LMCache & FlashInfer."
+LABEL org.opencontainers.image.description="vLLM with LMCache, FlashInfer, and LiteLLM proxy with polyglot tool call normalization for RTX 40/50-series."
 LABEL org.opencontainers.image.vllm_commit="${VLLM_COMMIT}"
 LABEL org.opencontainers.image.cuda_build_digest="${CUDA_BUILD_DIGEST}"
 LABEL org.opencontainers.image.cuda_runtime_digest="${CUDA_RUNTIME_DIGEST}"
 
 EXPOSE 8000
 
-ENTRYPOINT ["/opt/venv/bin/python", "-m", "vllm.entrypoints.openai.api_server"]
+# Copy and set executable entrypoint script
+COPY config/start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
+
+ENTRYPOINT ["/usr/local/bin/start.sh"]
