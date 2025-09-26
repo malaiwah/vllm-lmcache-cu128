@@ -105,8 +105,7 @@ MODEL="Qwen/Qwen2.5-Coder-14B-Instruct"
 MODEL="Qwen/Qwen2.5-Coder-14B-Instruct-AWQ"
 MODEL_LEN=131072
 
-MODEL=Qwen/Qwen3-4B-Instruct-2507
-MODEL_LEN=32768
+#MODEL=Qwen/Qwen3-4B-Instruct-2507
 
 #podman pull ${IMAGE} && \
 podman run --rm -it \
@@ -134,11 +133,11 @@ podman run --rm -it \
   --kv_cache_dtype fp8_e5m2 \
   --gpu-memory-utilization 0.96 \
   --max-model-len ${MODEL_LEN} \
+  --kv-transfer-config '{"kv_connector":"LMCacheConnectorV1","kv_role":"kv_both"}' \
+  --rope-scaling '{"rope_type":"yarn","factor":4.0,"original_max_position_embeddings":32768}' \
 #  END
-#  --kv-transfer-config '{"kv_connector":"LMCacheConnectorV1","kv_role":"kv_both"}' \
 #  --rope-scaling '{"type":"dynamic","factor":4.0,"original_max_position_embeddings":32768}' \
 #  --sliding-window 16384 \
-#  --rope-scaling '{"rope_type":"yarn","factor":4.0,"original_max_position_embeddings":32768}' \
 #  --cpu-offload-gb 8 \
 #  --kv_cache_dtype fp8 \
 #  --enforce-eager True \
