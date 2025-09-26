@@ -5,7 +5,7 @@ API_KEY = "LOCAL-ONLY-KEY"
 MODEL = "local/vllm"
 
 # Build a long filler (≈100k tokens when tokenized)
-filler = "FILLER TEXT. " * 6000
+filler = "FILLER TEXT. " * 25000
 
 # Construct the request
 payload = {
