@@ -9,7 +9,7 @@ API_URL = "http://localhost:8000/v1/responses"
 API_KEY = "LOCAL-ONLY-KEY"
 
 # Define the model
-MODEL = "gpt-5"
+MODEL = "local/vllm"
 
 # Define the instructions
 INSTRUCTIONS = "You are a careful assistant."
