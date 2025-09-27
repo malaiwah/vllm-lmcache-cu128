@@ -2,7 +2,7 @@
 import requests
 
 # Define the API URL
-API_URL = "http://localhost:8000/v1/completions"
+API_URL = "http://localhost:8000/v1/responses"
 
 # Define the API key
 API_KEY = "LOCAL-ONLY-KEY"
