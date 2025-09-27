@@ -1,4 +1,3 @@
-
 # polyglot_tools_stream_handler.py
 """
 LiteLLM Proxy callback that NORMALIZES tool calls during **streaming**.
@@ -21,15 +20,19 @@ How to use
       litellm --config config.yaml
 """
 
-import re
 import json
+import re
+import time
 from typing import Any, AsyncGenerator, Dict, List, Optional
+from uuid import uuid4
+
 from litellm.integrations.custom_logger import CustomLogger
 from litellm.types.utils import ModelResponseStream
 
 # Robust-ish regex for XML-ish tool blocks.
 HERMES_RE = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL)
 ANTHRO_RE = re.compile(r"<tool_use>\s*(\{.*?\})\s*</tool_use>", re.DOTALL)
+
 
 def _extract_calls_from_text(text: str) -> List[Dict[str, str]]:
     """
@@ -53,10 +56,12 @@ def _extract_calls_from_text(text: str) -> List[Dict[str, str]]:
             pass
     return calls
 
+
 def _strip_tool_blocks(text: str) -> str:
     text = HERMES_RE.sub("", text)
     text = ANTHRO_RE.sub("", text)
     return text
+
 
 def _parse_sse_data_line(line: str) -> Optional[Dict[str, Any]]:
     """If `line` looks like 'data: {...}', return the parsed JSON dict."""
@@ -72,65 +77,80 @@ def _parse_sse_data_line(line: str) -> Optional[Dict[str, Any]]:
     except Exception:
         return None
 
-def _pack_sse(obj: Dict[str, Any]) -> ModelResponseStream:
-    """
-    Pack an object into a ModelResponseStream-like item.
-    We let LiteLLM handle type wrapping; yielding a dict works in practice.
-    """
-    return ModelResponseStream(data=json.dumps(obj))
 
-def _mk_tool_call_delta(call_index: int, name: str, arguments: str, model: Optional[str] = None) -> Dict[str, Any]:
+def _mk_tool_call_delta(call_index: int, name: str, arguments: str) -> Dict[str, Any]:
     """
     Build an OpenAI Chat Completions streaming delta for tool_calls.
     According to OpenAI spec, the `arguments` field is streamed as incremental strings.
     For simplicity, we emit it all at once when the tag closes.
     """
-    delta = {
-        "id": None,
-        "object": "chat.completion.chunk",
-        "created": None,
-        "model": model,
-        "choices": [
-            {
-                "index": 0,
-                "delta": {
-                    "tool_calls": [
-                        {
-                            "index": call_index,
-                            "id": f"call_{call_index}",
-                            "type": "function",
-                            "function": {
-                                "name": name,
-                                "arguments": arguments
-                            }
-                        }
-                    ]
-                },
-                "finish_reason": None
-            }
-        ]
-    }
-    return delta
-
-def _mk_content_delta(text_piece: str, model: Optional[str] = None) -> Dict[str, Any]:
     return {
-        "id": None,
-        "object": "chat.completion.chunk",
-        "created": None,
-        "model": model,
-        "choices": [
+        "tool_calls": [
             {
-                "index": 0,
-                "delta": {"content": text_piece},
-                "finish_reason": None
+                "index": call_index,
+                "id": f"call_{call_index}",
+                "type": "function",
+                "function": {
+                    "name": name,
+                    "arguments": arguments,
+                },
             }
         ]
     }
+
+
+def _mk_content_delta(text_piece: str) -> Dict[str, Any]:
+    return {"content": text_piece}
+
+
+def _make_stream_chunk(
+    template: Optional[Dict[str, Any]],
+    delta: Dict[str, Any],
+    finish_reason: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Create a chunk dictionary shaped like ModelResponseStream/ChatCompletion chunk.
+    Falls back to synthetic metadata if no template is available.
+    """
+    base = template or {}
+    choices = base.get("choices") or []
+    first_choice = choices[0] if choices else {}
+
+    chunk = {
+        "id": base.get("id") or f"polyglot-tools-handler-{uuid4().hex}",
+        "object": base.get("object") or "chat.completion.chunk",
+        "created": base.get("created") or int(time.time()),
+        "model": base.get("model"),
+        "system_fingerprint": base.get("system_fingerprint"),
+        "choices": [
+            {
+                "index": first_choice.get("index", 0),
+                "delta": delta,
+                "finish_reason": finish_reason,
+                "logprobs": first_choice.get("logprobs"),
+            }
+        ],
+        "provider_specific_fields": base.get("provider_specific_fields"),
+    }
+    return chunk
+
+
+def _pack_stream(chunk: Dict[str, Any], kind: Optional[str]) -> Any:
+    """
+    Serialize a chunk according to the upstream stream type we intercepted.
+    """
+    if kind == "model":
+        return ModelResponseStream(**chunk)
+    if kind == "sse":
+        return f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
+    return chunk
+
 
 class PolyglotToolsStreamingHandler(CustomLogger):
     """
     Streaming-aware hook: normalizes <tool_call>/<tool_use> into OpenAI tool_calls.
     """
+
     def __init__(self):
         super().__init__()
 
@@ -149,97 +169,87 @@ class PolyglotToolsStreamingHandler(CustomLogger):
           - Strip the tag text from the visible content.
           - Pass through all non-tool content unchanged.
         """
-        buffer_text = ""          # accumulate content text (for tag detection)
-        pending_plain_flush = ""  # content to flush after stripping tags
-        model_name = None
+        buffer_text = ""
+        emitted_plain_text = ""
         tool_calls_emitted: List[Dict[str, str]] = []
+        last_template: Optional[Dict[str, Any]] = None
+        last_kind: Optional[str] = None
 
         async for item in response:
-            # Item may be a ModelResponseStream with .data, or already a dict.
-            raw = None
-            if isinstance(item, ModelResponseStream):
-                raw = item.data
-            elif isinstance(item, (bytes, str)):
-                raw = item
-            else:
-                # Try to JSON-serialize+parse; if fails, just yield
-                try:
-                    raw = item
-                except Exception:
-                    yield item
-                    continue
+            parsed: Optional[Dict[str, Any]] = None
+            kind: Optional[str] = None
 
-            # Try parse as SSE "data: {...}"
-            parsed = None
-            if isinstance(raw, (bytes, str)):
-                line = raw.decode() if isinstance(raw, bytes) else raw
+            if isinstance(item, ModelResponseStream):
+                parsed = item.model_dump()
+                kind = "model"
+            elif isinstance(item, (bytes, str)):
+                line = item.decode() if isinstance(item, bytes) else item
                 parsed = _parse_sse_data_line(line)
                 if parsed is None:
-                    # Non-JSON chunk (e.g., SSE keepalive). Pass through.
                     yield item
                     continue
                 if "[DONE]" in parsed:
-                    # Flush any remaining plain text (without tool tags)
-                    if pending_plain_flush:
-                        yield _pack_sse(_mk_content_delta(pending_plain_flush, model_name))
-                        pending_plain_flush = ""
-                    yield item  # forward the original [DONE]
+                    visible = _strip_tool_blocks(buffer_text)
+                    remaining = visible[len(emitted_plain_text):]
+                    if remaining:
+                        chunk_dict = _make_stream_chunk(last_template, _mk_content_delta(remaining))
+                        yield _pack_stream(chunk_dict, last_kind or kind or "sse")
+                        emitted_plain_text += remaining
+                    buffer_text = ""
+                    emitted_plain_text = ""
+                    tool_calls_emitted.clear()
+                    last_template = None
+                    last_kind = None
+                    yield item
                     continue
+                kind = "sse"
+            elif isinstance(item, dict):
+                parsed = item
+                kind = "dict"
             else:
-                # Already a dict-like JSON chunk
-                parsed = raw if isinstance(raw, dict) else None
-                if parsed is None:
-                    yield item
-                    continue
-
-            # Pull out text content deltas (if present)
-            try:
-                if model_name is None:
-                    model_name = parsed.get("model")
-                choices = parsed.get("choices") or []
-                if not choices:
-                    yield item  # pass through unrecognized chunk
-                    continue
-                delta = choices[0].get("delta") or {}
-                delta_text = delta.get("content")
-                if delta_text:
-                    buffer_text += delta_text
-                    # Detect completed tool blocks
-                    calls = _extract_calls_from_text(buffer_text)
-                    if calls:
-                        # Remove the blocks from visible text
-                        visible = _strip_tool_blocks(buffer_text)
-                        # Determine the new visible segment to flush
-                        to_flush = visible[len(pending_plain_flush):]
-                        if to_flush:
-                            yield _pack_sse(_mk_content_delta(to_flush, model_name))
-                            pending_plain_flush += to_flush
-
-                        # Emit tool_calls delta(s)
-                        for idx, c in enumerate(calls):
-                            # Avoid duplicating on repeated detection (idempotency)
-                            if c in tool_calls_emitted:
-                                continue
-                            tool_calls_emitted.append(c)
-                            yield _pack_sse(_mk_tool_call_delta(
-                                call_index=len(tool_calls_emitted)-1,
-                                name=c["name"],
-                                arguments=c["arguments"],
-                                model=model_name
-                            ))
-                        # We've consumed the entire buffer into visible text + tool_calls;
-                        # keep buffer_text equal to visible so future diffs are correct.
-                        buffer_text = visible
-                    # Do NOT forward the original item (we already emitted normalized deltas)
-                    continue
-                else:
-                    # Forward chunks with no 'content' delta (roles, etc.)
-                    yield item
-                    continue
-            except Exception:
-                # On any parsing error, just pass through untouched
                 yield item
                 continue
+
+            if not isinstance(parsed, dict):
+                yield item
+                continue
+
+            if parsed.get("choices"):
+                last_template = parsed
+                last_kind = kind or last_kind
+
+            choices = parsed.get("choices") or []
+            if not choices:
+                yield item
+                continue
+
+            delta = choices[0].get("delta") or {}
+            delta_text = delta.get("content")
+
+            if delta_text:
+                buffer_text += delta_text
+                visible = _strip_tool_blocks(buffer_text)
+                new_plain = visible[len(emitted_plain_text):]
+                if new_plain:
+                    chunk_dict = _make_stream_chunk(parsed, _mk_content_delta(new_plain))
+                    yield _pack_stream(chunk_dict, kind or last_kind or "dict")
+                    emitted_plain_text += new_plain
+
+                calls = _extract_calls_from_text(buffer_text)
+                for c in calls:
+                    if c in tool_calls_emitted:
+                        continue
+                    tool_calls_emitted.append(c)
+                    call_delta = _mk_tool_call_delta(len(tool_calls_emitted) - 1, c["name"], c["arguments"])
+                    chunk_dict = _make_stream_chunk(parsed, call_delta)
+                    yield _pack_stream(chunk_dict, kind or last_kind or "dict")
+
+                buffer_text = visible
+                continue
+
+            # No content text; pass through original item unchanged.
+            yield item
+
 
 # The instance that LiteLLM expects to import via config.yaml
 proxy_handler_instance = PolyglotToolsStreamingHandler()

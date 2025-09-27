@@ -129,14 +129,14 @@ podman run --rm -it \
   --dtype auto \
   --enable-auto-tool-choice --tool-call-parser hermes \
   --trust-remote-code \
-  --max_num_seqs 1 \
-  --kv_cache_dtype fp8_e5m2 \
+  --kv_cache_dtype fp8 \
   --gpu-memory-utilization 0.96 \
   --max-model-len ${MODEL_LEN} \
+  --max_num_seqs 4 \
   --kv-transfer-config '{"kv_connector":"LMCacheConnectorV1","kv_role":"kv_both"}' \
-  --rope-scaling '{"rope_type":"yarn","factor":4.0,"original_max_position_embeddings":32768}' \
+  --rope-scaling '{"type":"dynamic","factor":4.0,"original_max_position_embeddings":32768}' \
 #  END
-#  --rope-scaling '{"type":"dynamic","factor":4.0,"original_max_position_embeddings":32768}' \
+#  --rope-scaling '{"rope_type":"yarn","factor":4.0,"original_max_position_embeddings":32768}' \
 #  --sliding-window 16384 \
 #  --cpu-offload-gb 8 \
 #  --kv_cache_dtype fp8 \

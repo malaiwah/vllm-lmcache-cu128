@@ -1,13 +1,19 @@
+# Import the requests library
 import requests
 
+# Define the API URL
 API_URL = "http://localhost:8000/v1/chat/completions"
+
+# Define the API key
 API_KEY = "LOCAL-ONLY-KEY"
+
+# Define the model
 MODEL = "local/vllm"
 
 # Build a long filler (≈100k tokens when tokenized)
 filler = "FILLER TEXT. " * 25000
 
-# Construct the request
+# Construct the request payload
 payload = {
     "model": MODEL,
     "messages": [
@@ -22,8 +28,10 @@ payload = {
     "max_tokens": 20
 }
 
+# Define the headers
 headers = {"Authorization": f"Bearer {API_KEY}"}
 
+# Send the POST request and handle the response
 resp = requests.post(API_URL, json=payload, headers=headers)
 resp.raise_for_status()
 print(resp.json())
