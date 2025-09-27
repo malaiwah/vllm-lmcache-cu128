@@ -6,7 +6,7 @@ source .venv/bin/activate
 IMAGE=docker.io/malaiwah/vllm-lmcache-cu128:uv312
 
 # For local testing
-IMAGE=vllm-lmcache-cu128:test
+#IMAGE=vllm-lmcache-cu128:test
 
 LOCAL_PORT=8000
 
@@ -110,6 +110,7 @@ MODEL_LEN=131072
 #podman pull ${IMAGE} && \
 podman run --rm -it \
   --device nvidia.com/gpu=all \
+  --name vllm \
   --ipc=host \
   -p ${LOCAL_PORT}:${LOCAL_PORT} \
   --security-opt label=disable \

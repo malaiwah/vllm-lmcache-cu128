@@ -108,6 +108,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
       build-essential \
       cuda-nvcc-12-8 \
+      nvidia-cuda-dev \
       libcurand-dev-12-8 \
       logrotate \
       supervisor \
