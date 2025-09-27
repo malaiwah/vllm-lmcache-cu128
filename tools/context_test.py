@@ -1,5 +1,6 @@
 # Import the requests library
 import requests
+import json
 
 # Define the API URL
 API_URL = "http://localhost:8000/v1/responses"
@@ -29,4 +30,6 @@ headers = {"Authorization": f"Bearer {API_KEY}"}
 # Send the POST request and handle the response
 resp = requests.post(API_URL, json=payload, headers=headers)
 resp.raise_for_status()
-print(resp.json())
+
+# Print the pretty-printed JSON response
+print(json.dumps(resp.json(), indent=4))
