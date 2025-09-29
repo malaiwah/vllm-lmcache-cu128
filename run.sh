@@ -107,6 +107,10 @@ MODEL_LEN=131072
 
 #MODEL=Qwen/Qwen3-4B-Instruct-2507
 
+#(EngineCore_DP0 pid=197) AttributeError: MoE Model GptOssForCausalLM does not support BitsAndBytes quantization yet. Ensure this model has 'get_expert_mapping' method.
+#MODEL=unsloth/gpt-oss-20b-unsloth-bnb-4bit
+MODEL=openai/gpt-oss-20b
+
 #podman pull ${IMAGE} && \
 podman run --rm -it \
   --device nvidia.com/gpu=all \
@@ -128,15 +132,19 @@ podman run --rm -it \
   --model "${MODEL}" \
   --served-model-name "vllm" \
   --dtype auto \
-  --enable-auto-tool-choice --tool-call-parser hermes \
+  --enable-auto-tool-choice --tool-call-parser openai \
   --trust-remote-code \
   --kv_cache_dtype fp8 \
-  --gpu-memory-utilization 0.96 \
-  --max-model-len ${MODEL_LEN} \
+  --gpu-memory-utilization 0.85 \
   --max_num_seqs 4 \
+  --async-scheduling \
+  --cuda-graph-sizes 2048 \
   --kv-transfer-config '{"kv_connector":"LMCacheConnectorV1","kv_role":"kv_both"}' \
-  --rope-scaling '{"type":"dynamic","factor":4.0,"original_max_position_embeddings":32768}' \
+  --compilation-config '{"pass_config":{"enable_fi_allreduce_fusion":true,"enable_noop":true},"custom_ops":["+rms_norm"],"cudagraph_mode":"FULL_AND_PIECEWISE"}' \
 #  END
+#  --enable-auto-tool-choice --tool-call-parser hermes \
+#  --max-model-len ${MODEL_LEN} \
+#  --rope-scaling '{"type":"dynamic","factor":4.0,"original_max_position_embeddings":32768}' \
 #  --rope-scaling '{"rope_type":"yarn","factor":4.0,"original_max_position_embeddings":32768}' \
 #  --sliding-window 16384 \
 #  --cpu-offload-gb 8 \
