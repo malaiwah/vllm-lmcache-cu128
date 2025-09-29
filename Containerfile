@@ -24,9 +24,12 @@ ENV MAX_JOBS="${JOBS}"
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP_NO_CACHE_DIR=1
 ENV TORCH_CUDA_ARCH_LIST="8.9+PTX;12.0+PTX"
+ENV CUDA_ARCH_LIST="8.9+PTX;12.0+PTX"
+ENV CUDAARCHS="89;120"
 ENV TRITON_CUDA_ARCH_LIST="89;120"
 ENV FLASHINFER_CUDA_ARCHS="89;120"
-ENV CUDA_ARCH_LIST="8.9+PTX;12.0+PTX"
+ENV FLASH_ATTENTION_CUDA_ARCHS="89;120"
+ENV FLASH_ATTENTION_FORCE_BUILD=1
 
 ENV PATH=/opt/venv/bin:/root/.local/bin:$PATH
 ENV UV_PYTHON_PREFER_PREBUILT=1
@@ -34,6 +37,7 @@ ENV UV_LINK_MODE=copy
 
 # Tell CMake to launch compilers via sccache
 ENV CMAKE_ARGS="-DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_CUDA_COMPILER_LAUNCHER=sccache"
+ENV LD_LIBRARY_PATH=/opt/venv/lib/python3.12/site-packages/torch/lib:$LD_LIBRARY_PATH
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
@@ -68,13 +72,15 @@ RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.ccache,sharing=locked \
     uv pip install --python /opt/venv/bin/python --no-build-isolation --verbose .
 
+#    uv pip install -v --no-build-isolation --no-binary=:all: lmcache==0.3.6 && \
 WORKDIR /opt/app
 # Force recompile for Blackwell support
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.ccache,sharing=locked \
-    uv pip install --python /opt/venv/bin/python --no-binary lmcache --force-reinstall lmcache && \
-    uv pip install --python /opt/venv/bin/python --no-binary flashinfer-python --force-reinstall flashinfer-python
+    uv pip uninstall --python /opt/venv/bin/python lmcache flashinfer-python && \
+    uv pip install --python /opt/venv/bin/python --no-binary flashinfer-python --force-reinstall flashinfer-python && \
+    pip -v --python /opt/venv/bin/python install --no-binary :all: --no-build-isolation lmcache==0.3.6
 
 # Pin versions so vLLM+Numba are compatible
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
@@ -85,6 +91,9 @@ RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
 
 # Verify dependency health (non-fatal)
 RUN /opt/venv/bin/python -m pip check || true
+
+COPY tools/check_archs.py /usr/local/bin/check_archs.py
+RUN /opt/venv/bin/python /usr/local/bin/check_archs.py
 
 RUN printf "import sys, torch, vllm, numpy as np, numba, llvmlite, setuptools\nprint('Python:', sys.version.split()[0])\nprint('Torch:', torch.__version__, 'CUDA:', torch.version.cuda)\nprint('vLLM:', vllm.__version__)\nprint('NumPy:', np.__version__)\nprint('Numba:', numba.__version__)\nprint('LLVMLite:', llvmlite.__version__)\nprint('Setuptools:', setuptools.__version__)\n" | /opt/venv/bin/python -
 
@@ -101,6 +110,7 @@ ENV PATH=/opt/venv/bin:/root/.local/bin:$PATH
 ENV CC=gcc
 ENV CXX=g++
 ENV PYTHONPATH=/opt
+ENV LD_LIBRARY_PATH=/opt/venv/lib/python3.12/site-packages/torch/lib:$LD_LIBRARY_PATH
 
 # add a compiler for Triton/TorchInductor JIT (small, safe)
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
