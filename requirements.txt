@@ -1,6 +1,6 @@
 numpy==2.2.2
 numba==0.61.2
-llvmlite==0.44.0
+llvmlite==0.45.1
 setuptools==79.0.0
 lmcache==0.3.6
 flashinfer-python
