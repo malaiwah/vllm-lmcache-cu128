@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:1.7
 
-ARG CUDA_BUILD_DIGEST=sha256:468c101db63b1fd84b05dd082f8bda87326c86ff5f7356b5e5aa37f9b8585ca5
-ARG CUDA_RUNTIME_DIGEST=sha256:2189eb90b6f7a93003344a5e9d45aeed7cd6158bffb41d9fbe8b1b1a624533af
+ARG CUDA_BUILD_DIGEST=sha256:3986465b3dd3b4d602c07061f2cff417e0bfb24810129408d4eb12e111015a6c
+ARG CUDA_RUNTIME_DIGEST=sha256:9175fa92f96de35a8cfb9493f0dfcf9435c7a597e9d95ad41d2cae382a95e3f9
 
-FROM docker.io/nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04 AS build
+FROM docker.io/nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04@${CUDA_BUILD_DIGEST} AS build
 # Update packages, except the pinned ones
 RUN apt-get update && apt-get dist-upgrade -y && apt-get clean
 
@@ -14,7 +14,7 @@ ENV CUDA_RUNTIME_DIGEST=${CUDA_RUNTIME_DIGEST}
 
 # Version pins
 ENV PYTHON_VERSION=3.12
-ENV VLLM_COMMIT=8938774c79f185035bc3de5f19cfc7abaa242a5a
+ENV VLLM_COMMIT=31a4b3e6c40278025664169eafbc8165e1d0c393
 ENV TORCH_INDEX_URL=https://download.pytorch.org/whl/nightly/cu128
 
 # Limits to keep memory usage under control
@@ -99,7 +99,7 @@ RUN printf "import sys, torch, vllm, numpy as np, numba, llvmlite, setuptools\np
 
 RUN /opt/venv/bin/python -m pip freeze > /opt/venv/requirements.freeze.txt
 
-FROM docker.io/nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04 AS runtime
+FROM docker.io/nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04@${CUDA_RUNTIME_DIGEST} AS runtime
 # Update packages, except the pinned ones
 RUN apt-get update && apt-get dist-upgrade -y && apt-get clean
 
