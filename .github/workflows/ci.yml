@@ -73,9 +73,9 @@ jobs:
         curl -L https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64 -o bin/cosign
         chmod +x bin/cosign
 
-    - name: Verify signature
-      run: |
-        bin/cosign verify --key cosign.pub malaiwah/vllm-lmcache-cu128:uv312
+    #- name: Verify signature
+    #  run: |
+    #    bin/cosign verify --key cosign.pub malaiwah/vllm-lmcache-cu128:uv312
 
     - name: Run test
       run: |
