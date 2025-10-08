@@ -3,6 +3,8 @@ HF_TOKEN=
 MODEL=Qwen/Qwen2.5-3B-Instruct-AWQ
 MODEL_LEN=8192
 
+mkdir -p $HOME/.cache/huggingface
+
 podman run --rm \
   --device nvidia.com/gpu=all \
   --ipc=host \
