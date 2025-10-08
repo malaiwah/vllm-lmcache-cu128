@@ -25,4 +25,8 @@ $ python tools/inspect_cuda_manifest.py
 
 ## Historical notes
 
-- 2025-10-08: Updated `VLLM_COMMIT` pin to match upstream `main` and recorded the verification output.
+- 2025-10-08:
+  - Updated `VLLM_COMMIT` pin to match upstream `main`.
+  - Refreshed the CUDA 12.8.1 build and runtime base image digests to the latest linux/amd64 manifests.
+  - Added `tools/inspect_cuda_manifest.py` to automate future digest inspections.
+  - Removed the earlier note about a failed verification attempt to keep this log focused on successful checks.
