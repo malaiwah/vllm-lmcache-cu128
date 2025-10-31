@@ -5,6 +5,7 @@ general_settings:
   master_key: "LOCAL-ONLY-KEY"
   # Fail fast but don't crash if a backend is down
   ignore_invalid_deployments: true
+  request_timeout: 600
 
 model_list:
   # Local vLLM (Qwen or any model)
@@ -16,4 +17,4 @@ model_list:
 
 litellm_settings:
   # Register the polyglot callback to normalize tool calls
-  callbacks: polyglot_tools_stream_handler.proxy_handler_instance
+  # callbacks: polyglot_tools_stream_handler.proxy_handler_instance
