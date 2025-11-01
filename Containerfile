@@ -7,8 +7,8 @@ FROM docker.io/nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04@${CUDA_BUILD_DIGEST} A
 # Update packages, except the pinned ones
 RUN apt-get update && apt-get dist-upgrade -y && apt-get clean
 
-ARG JOBS=16
-ENV JOBS=${JOBS}
+#ARG JOBS=16
+#ENV JOBS=${JOBS}
 ENV CUDA_BUILD_DIGEST=${CUDA_BUILD_DIGEST}
 ENV CUDA_RUNTIME_DIGEST=${CUDA_RUNTIME_DIGEST}
 
@@ -18,8 +18,8 @@ ENV VLLM_COMMIT=31a4b3e6c40278025664169eafbc8165e1d0c393
 ENV TORCH_INDEX_URL=https://download.pytorch.org/whl/nightly/cu128
 
 # Limits to keep memory usage under control
-ENV CMAKE_BUILD_PARALLEL_LEVEL="${JOBS}"
-ENV MAX_JOBS="${JOBS}"
+#ENV CMAKE_BUILD_PARALLEL_LEVEL="${JOBS}"
+#ENV MAX_JOBS="${JOBS}"
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP_NO_CACHE_DIR=1
