@@ -6,6 +6,7 @@ lmcache==0.3.6
 flashinfer-python
 nvidia-ml-py
 bitsandbytes>=0.46.1
+torch>=2.9.0
 torchao>=0.10.0
 bitblas>=0.1.0
 transformer-engine>=1.10.0
