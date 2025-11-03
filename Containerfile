@@ -79,7 +79,7 @@ RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.ccache,sharing=locked \
     uv pip uninstall --python /opt/venv/bin/python lmcache flashinfer-python && \
-    uv pip install --python /opt/venv/bin/python --no-binary 'flashinfer-python>=0.4.0' --force-reinstall flashinfer-python && \
+    uv pip install --python /opt/venv/bin/python --no-binary flashinfer-python --force-reinstall 'flashinfer-python>=0.4.0' && \
     pip -v --python /opt/venv/bin/python install --no-binary :all: --no-build-isolation lmcache==0.3.6
 
 # Pin versions so vLLM+Numba are compatible
