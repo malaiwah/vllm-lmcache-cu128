@@ -16,6 +16,8 @@ ENV CUDA_RUNTIME_DIGEST=${CUDA_RUNTIME_DIGEST}
 ENV PYTHON_VERSION=3.12
 ENV VLLM_COMMIT=3758757377b713b6acc997d0ac2c5dd49c332278
 ENV TORCH_INDEX_URL=https://download.pytorch.org/whl/nightly/cu128
+ENV PIP_EXTRA_INDEX_URL=https://download.pytorch.org/whl/nightly/cu128
+ENV UV_EXTRA_INDEX_URL=https://download.pytorch.org/whl/nightly/cu128
 
 # Limits to keep memory usage under control
 #ENV CMAKE_BUILD_PARALLEL_LEVEL="${JOBS}"
@@ -111,6 +113,8 @@ ENV CC=gcc
 ENV CXX=g++
 ENV PYTHONPATH=/opt
 ENV LD_LIBRARY_PATH=/opt/venv/lib/python3.12/site-packages/torch/lib:$LD_LIBRARY_PATH
+ENV PIP_EXTRA_INDEX_URL=https://download.pytorch.org/whl/nightly/cu128
+ENV UV_EXTRA_INDEX_URL=https://download.pytorch.org/whl/nightly/cu128
 
 # add a compiler for Triton/TorchInductor JIT (small, safe)
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
