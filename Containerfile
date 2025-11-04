@@ -14,10 +14,6 @@ ARG SCCACHE_ENABLED=0
 ARG CMAKE_LAUNCHER_ARGS=""
 ARG JOBS
 ARG SCCACHE_DOWNLOAD_URL=https://github.com/mozilla/sccache/releases/download/v0.8.1/sccache-v0.8.1-x86_64-unknown-linux-musl.tar.gz
-ARG SCCACHE_ENDPOINT
-ARG SCCACHE_BUCKET
-ARG SCCACHE_REGION
-ARG SCCACHE_S3_NO_CREDENTIALS=0
 
 FROM docker.io/nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04@${CUDA_BUILD_DIGEST} AS build-base
 ARG TORCH_NIGHTLY_INDEX
@@ -32,10 +28,6 @@ ARG SCCACHE_ENABLED
 ARG CMAKE_LAUNCHER_ARGS
 ARG JOBS
 ARG SCCACHE_DOWNLOAD_URL
-ARG SCCACHE_ENDPOINT
-ARG SCCACHE_BUCKET
-ARG SCCACHE_REGION
-ARG SCCACHE_S3_NO_CREDENTIALS
 ENV SCCACHE_ENABLED=${SCCACHE_ENABLED}
 # Update packages, except the pinned ones
 RUN apt-get update && apt-get dist-upgrade -y && apt-get clean
@@ -54,10 +46,6 @@ ENV PIP_EXTRA_INDEX_URL=${TORCH_NIGHTLY_INDEX}
 ENV UV_EXTRA_INDEX_URL=${TORCH_NIGHTLY_INDEX}
 ENV UV_INDEX_STRATEGY=${UV_INDEX_STRATEGY}
 ENV UV_PRERELEASE=${UV_PRERELEASE}
-ENV SCCACHE_ENDPOINT=${SCCACHE_ENDPOINT}
-ENV SCCACHE_BUCKET=${SCCACHE_BUCKET}
-ENV SCCACHE_REGION=${SCCACHE_REGION}
-ENV SCCACHE_S3_NO_CREDENTIALS=${SCCACHE_S3_NO_CREDENTIALS}
 ENV SCCACHE_DIR=/root/.cache/sccache
 ENV SCCACHE_IDLE_TIMEOUT=0
 
@@ -132,7 +120,7 @@ WORKDIR /opt/app
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.cache/ccache,sharing=locked \
-    /bin/sh <<EOF
+    <<'EOF'
 set -eux
 if [ -n "${JOBS}" ]; then
   export MAX_JOBS=${JOBS}
@@ -142,10 +130,10 @@ fi
 git clone https://github.com/facebookresearch/xformers.git /tmp/xformers
 cd /tmp/xformers
 git config advice.detachedHead false
-git checkout ${XFORMERS_COMMIT}
+git checkout "${XFORMERS_COMMIT}"
 git submodule update --init --recursive
 mkdir -p /opt/dist/xformers
-BUILD_VERSION=${XFORMERS_VERSION} /opt/venv/bin/python setup.py bdist_wheel --dist-dir /opt/dist/xformers --verbose
+BUILD_VERSION="${XFORMERS_VERSION}" /opt/venv/bin/python setup.py bdist_wheel --dist-dir /opt/dist/xformers --verbose
 rm -rf /tmp/xformers
 EOF
 
@@ -167,7 +155,7 @@ WORKDIR /opt/app/vllm
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.ccache,sharing=locked \
-    /bin/sh <<EOF
+    <<'EOF'
 set -eux
 if [ -n "${JOBS}" ]; then
   export MAX_JOBS=${JOBS}
@@ -183,7 +171,7 @@ WORKDIR /opt/app
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.ccache,sharing=locked \
-    /bin/sh <<EOF
+    <<'EOF'
 set -eux
 if [ -n "${JOBS}" ]; then
   export MAX_JOBS=${JOBS}
