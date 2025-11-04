@@ -7,10 +7,11 @@ ARG UV_INDEX_STRATEGY=unsafe-best-match
 ARG VLLM_COMMIT=3758757377b713b6acc997d0ac2c5dd49c332278
 ARG XFORMERS_COMMIT=5d4b92a5e5a9c6c6d4878283f47d82e17995b468
 ARG XFORMERS_VERSION=0.0.33+5d4b92a5.d20251029
+ARG XFORMERS_MAX_JOBS=16
 ARG CUDA_ARCH_LIST_PTX="8.9+PTX;10.0+PTX;12.0+PTX"
 ARG CUDA_ARCH_LIST_NUMERIC="89;100;120"
 
-FROM docker.io/nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04@${CUDA_BUILD_DIGEST} AS build
+FROM docker.io/nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04@${CUDA_BUILD_DIGEST} AS build-base
 ARG TORCH_NIGHTLY_INDEX
 ARG UV_INDEX_STRATEGY
 ARG VLLM_COMMIT
@@ -86,6 +87,13 @@ RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
 RUN git clone https://github.com/vllm-project/vllm.git && cd vllm && git config advice.detachedHead false && git checkout ${VLLM_COMMIT}
 WORKDIR /opt/app/vllm
 
+FROM build-base AS xformers-wheel
+ARG XFORMERS_COMMIT
+ARG XFORMERS_VERSION
+ARG XFORMERS_MAX_JOBS
+ENV MAX_JOBS=${XFORMERS_MAX_JOBS}
+ENV CCACHE_DIR=/root/.cache/ccache
+WORKDIR /opt/app
 # Build the pinned xFormers wheel locally to satisfy vLLM's dependency.
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
@@ -95,9 +103,22 @@ RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     && git config advice.detachedHead false \
     && git checkout ${XFORMERS_COMMIT} \
     && git submodule update --init --recursive \
-    && BUILD_VERSION=${XFORMERS_VERSION} /opt/venv/bin/python setup.py bdist_wheel --dist-dir /tmp/xformers-dist --verbose \
-    && uv pip install --python /opt/venv/bin/python /tmp/xformers-dist/*.whl \
-    && rm -rf /tmp/xformers /tmp/xformers-dist
+    && mkdir -p /opt/dist/xformers \
+    && BUILD_VERSION=${XFORMERS_VERSION} /opt/venv/bin/python setup.py bdist_wheel --dist-dir /opt/dist/xformers --verbose \
+    && rm -rf /tmp/xformers
+
+RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
+    --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
+    uv pip install --python /opt/venv/bin/python /opt/dist/xformers/*.whl
+
+WORKDIR /opt/app/vllm
+
+FROM xformers-wheel AS build
+ARG VLLM_COMMIT
+ARG XFORMERS_COMMIT
+ARG XFORMERS_VERSION
+
+WORKDIR /opt/app/vllm
 
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
