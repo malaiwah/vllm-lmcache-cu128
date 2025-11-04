@@ -120,7 +120,7 @@ WORKDIR /opt/app
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.cache/ccache,sharing=locked \
-    <<'EOF'
+    /bin/sh <<'EOF'
 set -eux
 if [ -n "${JOBS}" ]; then
   export MAX_JOBS=${JOBS}
@@ -155,7 +155,7 @@ WORKDIR /opt/app/vllm
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.ccache,sharing=locked \
-    <<'EOF'
+    /bin/sh <<'EOF'
 set -eux
 if [ -n "${JOBS}" ]; then
   export MAX_JOBS=${JOBS}
@@ -171,7 +171,7 @@ WORKDIR /opt/app
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.ccache,sharing=locked \
-    <<'EOF'
+    /bin/sh <<'EOF'
 set -eux
 if [ -n "${JOBS}" ]; then
   export MAX_JOBS=${JOBS}
