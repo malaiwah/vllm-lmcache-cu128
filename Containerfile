@@ -92,12 +92,12 @@ RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     uv pip install --python /opt/venv/bin/python --no-binary flashinfer-python --force-reinstall flashinfer-python && \
     pip -v --python /opt/venv/bin/python install --no-binary :all: --no-build-isolation lmcache==0.3.6
 
-# Re-pin numerical stack so vLLM+Numba stay compatible (NumPy version comes from Torch nightly)
+# Ensure the nightly numerical stack is installed consistently
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.ccache,sharing=locked \
     uv pip install --python /opt/venv/bin/python \
-      "numpy" "numba==0.62.1" "llvmlite==0.45.1" "setuptools==80.9.0"
+      "numpy" "numba" "llvmlite" "setuptools"
 
 # Verify dependency health (non-fatal)
 RUN /opt/venv/bin/python -m pip check || true

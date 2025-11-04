@@ -1,7 +1,7 @@
 numpy
 numba
 llvmlite
-setuptools==80.9.0
+setuptools
 lmcache==0.3.6
 flashinfer-python
 nvidia-ml-py
