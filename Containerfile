@@ -3,9 +3,11 @@
 ARG CUDA_BUILD_DIGEST=sha256:3986465b3dd3b4d602c07061f2cff417e0bfb24810129408d4eb12e111015a6c
 ARG CUDA_RUNTIME_DIGEST=sha256:9175fa92f96de35a8cfb9493f0dfcf9435c7a597e9d95ad41d2cae382a95e3f9
 ARG TORCH_NIGHTLY_INDEX=https://download.pytorch.org/whl/nightly/cu128
+ARG VLLM_COMMIT=3758757377b713b6acc997d0ac2c5dd49c332278
 
 FROM docker.io/nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04@${CUDA_BUILD_DIGEST} AS build
 ARG TORCH_NIGHTLY_INDEX
+ARG VLLM_COMMIT
 # Update packages, except the pinned ones
 RUN apt-get update && apt-get dist-upgrade -y && apt-get clean
 
@@ -16,7 +18,7 @@ ENV CUDA_RUNTIME_DIGEST=${CUDA_RUNTIME_DIGEST}
 
 # Version pins
 ENV PYTHON_VERSION=3.12
-ENV VLLM_COMMIT=3758757377b713b6acc997d0ac2c5dd49c332278
+ENV VLLM_COMMIT=${VLLM_COMMIT}
 ENV TORCH_INDEX_URL=${TORCH_NIGHTLY_INDEX}
 ENV PIP_EXTRA_INDEX_URL=${TORCH_NIGHTLY_INDEX}
 ENV UV_EXTRA_INDEX_URL=${TORCH_NIGHTLY_INDEX}
@@ -104,6 +106,8 @@ RUN printf "import sys, torch, vllm, numpy as np, numba, llvmlite, setuptools\np
 RUN /opt/venv/bin/python -m pip freeze > /opt/venv/requirements.freeze.txt
 
 FROM docker.io/nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04@${CUDA_RUNTIME_DIGEST} AS runtime
+ARG VLLM_COMMIT
+ENV VLLM_COMMIT=${VLLM_COMMIT}
 # Update packages, except the pinned ones
 RUN apt-get update && apt-get dist-upgrade -y && apt-get clean
 
