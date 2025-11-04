@@ -5,6 +5,8 @@ ARG CUDA_RUNTIME_DIGEST=sha256:9175fa92f96de35a8cfb9493f0dfcf9435c7a597e9d95ad41
 ARG TORCH_NIGHTLY_INDEX=https://download.pytorch.org/whl/nightly/cu128
 ARG UV_INDEX_STRATEGY=unsafe-best-match
 ARG VLLM_COMMIT=3758757377b713b6acc997d0ac2c5dd49c332278
+ARG XFORMERS_COMMIT=5d4b92a5e5a9c6c6d4878283f47d82e17995b468
+ARG XFORMERS_VERSION=0.0.33+5d4b92a5.d20251029
 ARG CUDA_ARCH_LIST_PTX="8.9+PTX;10.0+PTX;12.0+PTX"
 ARG CUDA_ARCH_LIST_NUMERIC="89;100;120"
 
@@ -12,6 +14,8 @@ FROM docker.io/nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04@${CUDA_BUILD_DIGEST} A
 ARG TORCH_NIGHTLY_INDEX
 ARG UV_INDEX_STRATEGY
 ARG VLLM_COMMIT
+ARG XFORMERS_COMMIT
+ARG XFORMERS_VERSION
 ARG CUDA_ARCH_LIST_PTX
 ARG CUDA_ARCH_LIST_NUMERIC
 # Update packages, except the pinned ones
@@ -25,6 +29,8 @@ ENV CUDA_RUNTIME_DIGEST=${CUDA_RUNTIME_DIGEST}
 # Version pins
 ENV PYTHON_VERSION=3.12
 ENV VLLM_COMMIT=${VLLM_COMMIT}
+ENV XFORMERS_COMMIT=${XFORMERS_COMMIT}
+ENV XFORMERS_VERSION=${XFORMERS_VERSION}
 ENV TORCH_INDEX_URL=${TORCH_NIGHTLY_INDEX}
 ENV PIP_EXTRA_INDEX_URL=${TORCH_NIGHTLY_INDEX}
 ENV UV_EXTRA_INDEX_URL=${TORCH_NIGHTLY_INDEX}
@@ -80,6 +86,19 @@ RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
 RUN git clone https://github.com/vllm-project/vllm.git && cd vllm && git config advice.detachedHead false && git checkout ${VLLM_COMMIT}
 WORKDIR /opt/app/vllm
 
+# Build the pinned xFormers wheel locally to satisfy vLLM's dependency.
+RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
+    --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
+    --mount=type=cache,target=/root/.cache/ccache,sharing=locked \
+    git clone https://github.com/facebookresearch/xformers.git /tmp/xformers \
+    && cd /tmp/xformers \
+    && git config advice.detachedHead false \
+    && git checkout ${XFORMERS_COMMIT} \
+    && git submodule update --init --recursive \
+    && BUILD_VERSION=${XFORMERS_VERSION} /opt/venv/bin/python setup.py bdist_wheel --dist-dir /tmp/xformers-dist --verbose \
+    && uv pip install --python /opt/venv/bin/python /tmp/xformers-dist/*.whl \
+    && rm -rf /tmp/xformers /tmp/xformers-dist
+
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.ccache,sharing=locked \
@@ -114,7 +133,11 @@ RUN /opt/venv/bin/python -m pip freeze > /opt/venv/requirements.freeze.txt
 
 FROM docker.io/nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04@${CUDA_RUNTIME_DIGEST} AS runtime
 ARG VLLM_COMMIT
+ARG XFORMERS_COMMIT
+ARG XFORMERS_VERSION
 ENV VLLM_COMMIT=${VLLM_COMMIT}
+ENV XFORMERS_COMMIT=${XFORMERS_COMMIT}
+ENV XFORMERS_VERSION=${XFORMERS_VERSION}
 # Update packages, except the pinned ones
 RUN apt-get update && apt-get dist-upgrade -y && apt-get clean
 
