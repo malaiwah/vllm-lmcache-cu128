@@ -14,7 +14,7 @@ ENV CUDA_RUNTIME_DIGEST=${CUDA_RUNTIME_DIGEST}
 
 # Version pins
 ENV PYTHON_VERSION=3.12
-ENV VLLM_COMMIT=31a4b3e6c40278025664169eafbc8165e1d0c393
+ENV VLLM_COMMIT=3758757377b713b6acc997d0ac2c5dd49c332278
 ENV TORCH_INDEX_URL=https://download.pytorch.org/whl/nightly/cu128
 
 # Limits to keep memory usage under control
