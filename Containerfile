@@ -2,8 +2,10 @@
 
 ARG CUDA_BUILD_DIGEST=sha256:3986465b3dd3b4d602c07061f2cff417e0bfb24810129408d4eb12e111015a6c
 ARG CUDA_RUNTIME_DIGEST=sha256:9175fa92f96de35a8cfb9493f0dfcf9435c7a597e9d95ad41d2cae382a95e3f9
+ARG TORCH_NIGHTLY_INDEX=https://download.pytorch.org/whl/nightly/cu128
 
 FROM docker.io/nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04@${CUDA_BUILD_DIGEST} AS build
+ARG TORCH_NIGHTLY_INDEX
 # Update packages, except the pinned ones
 RUN apt-get update && apt-get dist-upgrade -y && apt-get clean
 
@@ -15,9 +17,9 @@ ENV CUDA_RUNTIME_DIGEST=${CUDA_RUNTIME_DIGEST}
 # Version pins
 ENV PYTHON_VERSION=3.12
 ENV VLLM_COMMIT=3758757377b713b6acc997d0ac2c5dd49c332278
-ENV TORCH_INDEX_URL=https://download.pytorch.org/whl/nightly/cu128
-ENV PIP_EXTRA_INDEX_URL=https://download.pytorch.org/whl/nightly/cu128
-ENV UV_EXTRA_INDEX_URL=https://download.pytorch.org/whl/nightly/cu128
+ENV TORCH_INDEX_URL=${TORCH_NIGHTLY_INDEX}
+ENV PIP_EXTRA_INDEX_URL=${TORCH_NIGHTLY_INDEX}
+ENV UV_EXTRA_INDEX_URL=${TORCH_NIGHTLY_INDEX}
 
 # Limits to keep memory usage under control
 #ENV CMAKE_BUILD_PARALLEL_LEVEL="${JOBS}"
@@ -84,12 +86,12 @@ RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     uv pip install --python /opt/venv/bin/python --no-binary flashinfer-python --force-reinstall flashinfer-python && \
     pip -v --python /opt/venv/bin/python install --no-binary :all: --no-build-isolation lmcache==0.3.6
 
-# Pin versions so vLLM+Numba are compatible
+# Re-pin numerical stack so vLLM+Numba stay compatible (NumPy version comes from Torch nightly)
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.ccache,sharing=locked \
     uv pip install --python /opt/venv/bin/python \
-      "numpy==2.2.2" "numba==0.61.2" "llvmlite==0.44.0" "setuptools==79.0.0"
+      "numpy" "numba==0.62.1" "llvmlite==0.45.1" "setuptools==80.9.0"
 
 # Verify dependency health (non-fatal)
 RUN /opt/venv/bin/python -m pip check || true
@@ -113,8 +115,9 @@ ENV CC=gcc
 ENV CXX=g++
 ENV PYTHONPATH=/opt
 ENV LD_LIBRARY_PATH=/opt/venv/lib/python3.12/site-packages/torch/lib:$LD_LIBRARY_PATH
-ENV PIP_EXTRA_INDEX_URL=https://download.pytorch.org/whl/nightly/cu128
-ENV UV_EXTRA_INDEX_URL=https://download.pytorch.org/whl/nightly/cu128
+ARG TORCH_NIGHTLY_INDEX
+ENV PIP_EXTRA_INDEX_URL=${TORCH_NIGHTLY_INDEX}
+ENV UV_EXTRA_INDEX_URL=${TORCH_NIGHTLY_INDEX}
 
 # add a compiler for Triton/TorchInductor JIT (small, safe)
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
