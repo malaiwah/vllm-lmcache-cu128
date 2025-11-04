@@ -8,11 +8,16 @@ ARG UV_PRERELEASE=allow
 ARG VLLM_COMMIT=3758757377b713b6acc997d0ac2c5dd49c332278
 ARG XFORMERS_COMMIT=5d4b92a5e5a9c6c6d4878283f47d82e17995b468
 ARG XFORMERS_VERSION=0.0.33+5d4b92a5.d20251029
-ARG XFORMERS_MAX_JOBS=16
 ARG CUDA_ARCH_LIST_PTX="8.9+PTX;10.0+PTX;12.0+PTX"
 ARG CUDA_ARCH_LIST_NUMERIC="89;100;120"
 ARG SCCACHE_ENABLED=0
 ARG CMAKE_LAUNCHER_ARGS=""
+ARG JOBS
+ARG SCCACHE_DOWNLOAD_URL=https://github.com/mozilla/sccache/releases/download/v0.8.1/sccache-v0.8.1-x86_64-unknown-linux-musl.tar.gz
+ARG SCCACHE_ENDPOINT
+ARG SCCACHE_BUCKET
+ARG SCCACHE_REGION
+ARG SCCACHE_S3_NO_CREDENTIALS=0
 
 FROM docker.io/nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04@${CUDA_BUILD_DIGEST} AS build-base
 ARG TORCH_NIGHTLY_INDEX
@@ -25,12 +30,17 @@ ARG CUDA_ARCH_LIST_PTX
 ARG CUDA_ARCH_LIST_NUMERIC
 ARG SCCACHE_ENABLED
 ARG CMAKE_LAUNCHER_ARGS
+ARG JOBS
+ARG SCCACHE_DOWNLOAD_URL
+ARG SCCACHE_ENDPOINT
+ARG SCCACHE_BUCKET
+ARG SCCACHE_REGION
+ARG SCCACHE_S3_NO_CREDENTIALS
 ENV SCCACHE_ENABLED=${SCCACHE_ENABLED}
 # Update packages, except the pinned ones
 RUN apt-get update && apt-get dist-upgrade -y && apt-get clean
 
-#ARG JOBS=16
-#ENV JOBS=${JOBS}
+# Optional parallelism limit (pass --build-arg JOBS=... to enable throttling)
 ENV CUDA_BUILD_DIGEST=${CUDA_BUILD_DIGEST}
 ENV CUDA_RUNTIME_DIGEST=${CUDA_RUNTIME_DIGEST}
 
@@ -44,6 +54,12 @@ ENV PIP_EXTRA_INDEX_URL=${TORCH_NIGHTLY_INDEX}
 ENV UV_EXTRA_INDEX_URL=${TORCH_NIGHTLY_INDEX}
 ENV UV_INDEX_STRATEGY=${UV_INDEX_STRATEGY}
 ENV UV_PRERELEASE=${UV_PRERELEASE}
+ENV SCCACHE_ENDPOINT=${SCCACHE_ENDPOINT}
+ENV SCCACHE_BUCKET=${SCCACHE_BUCKET}
+ENV SCCACHE_REGION=${SCCACHE_REGION}
+ENV SCCACHE_S3_NO_CREDENTIALS=${SCCACHE_S3_NO_CREDENTIALS}
+ENV SCCACHE_DIR=/root/.cache/sccache
+ENV SCCACHE_IDLE_TIMEOUT=0
 
 # Limits to keep memory usage under control
 #ENV CMAKE_BUILD_PARALLEL_LEVEL="${JOBS}"
@@ -72,11 +88,17 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     set -eux; \
     apt-get update; \
     packages="git build-essential curl ca-certificates pkg-config python3 python3-pip python3-dev ninja-build cmake"; \
-    if [ "${SCCACHE_ENABLED}" = "1" ]; then \
-      packages="$packages sccache"; \
-    fi; \
     apt-get install -y --no-install-recommends $packages; \
     apt-get clean
+
+RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
+    if [ "${SCCACHE_ENABLED}" = "1" ]; then \
+      set -eux; \
+      curl -L -o /tmp/sccache.tar.gz ${SCCACHE_DOWNLOAD_URL}; \
+      tar -xzf /tmp/sccache.tar.gz -C /tmp; \
+      install -m 0755 /tmp/sccache-*/sccache /usr/local/bin/sccache; \
+      rm -rf /tmp/sccache.tar.gz /tmp/sccache-*; \
+    fi
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
@@ -103,22 +125,28 @@ WORKDIR /opt/app/vllm
 FROM build-base AS xformers-wheel
 ARG XFORMERS_COMMIT
 ARG XFORMERS_VERSION
-ARG XFORMERS_MAX_JOBS
-ENV MAX_JOBS=${XFORMERS_MAX_JOBS}
+ARG JOBS
 ENV CCACHE_DIR=/root/.cache/ccache
 WORKDIR /opt/app
 # Build the pinned xFormers wheel locally to satisfy vLLM's dependency.
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
-    --mount=type=cache,target=/root/.cache/ccache,sharing=locked \
-    git clone https://github.com/facebookresearch/xformers.git /tmp/xformers \
-    && cd /tmp/xformers \
-    && git config advice.detachedHead false \
-    && git checkout ${XFORMERS_COMMIT} \
-    && git submodule update --init --recursive \
-    && mkdir -p /opt/dist/xformers \
-    && BUILD_VERSION=${XFORMERS_VERSION} /opt/venv/bin/python setup.py bdist_wheel --dist-dir /opt/dist/xformers --verbose \
-    && rm -rf /tmp/xformers
+    --mount=type=cache,target=/root/.cache/ccache,sharing=locked <<EOF
+set -eux
+if [ -n "${JOBS}" ]; then
+  export MAX_JOBS=${JOBS}
+  export CMAKE_BUILD_PARALLEL_LEVEL=${JOBS}
+  export MAKEFLAGS=-j${JOBS}
+fi
+git clone https://github.com/facebookresearch/xformers.git /tmp/xformers
+cd /tmp/xformers
+git config advice.detachedHead false
+git checkout ${XFORMERS_COMMIT}
+git submodule update --init --recursive
+mkdir -p /opt/dist/xformers
+BUILD_VERSION=${XFORMERS_VERSION} /opt/venv/bin/python setup.py bdist_wheel --dist-dir /opt/dist/xformers --verbose
+rm -rf /tmp/xformers
+EOF
 
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
@@ -131,23 +159,38 @@ ARG VLLM_COMMIT
 ARG XFORMERS_COMMIT
 ARG XFORMERS_VERSION
 ARG UV_PRERELEASE
+ARG JOBS
 
 WORKDIR /opt/app/vllm
 
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
-    --mount=type=cache,target=/root/.ccache,sharing=locked \
-    uv pip install --python /opt/venv/bin/python --no-build-isolation --verbose .
+    --mount=type=cache,target=/root/.ccache,sharing=locked <<EOF
+set -eux
+if [ -n "${JOBS}" ]; then
+  export MAX_JOBS=${JOBS}
+  export CMAKE_BUILD_PARALLEL_LEVEL=${JOBS}
+  export MAKEFLAGS=-j${JOBS}
+fi
+uv pip install --python /opt/venv/bin/python --no-build-isolation --verbose .
+EOF
 
 #    uv pip install -v --no-build-isolation --no-binary=:all: lmcache==0.3.6 && \
 WORKDIR /opt/app
 # Force recompile for Blackwell support
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
-    --mount=type=cache,target=/root/.ccache,sharing=locked \
-    uv pip uninstall --python /opt/venv/bin/python lmcache flashinfer-python && \
-    uv pip install --python /opt/venv/bin/python --no-binary flashinfer-python --force-reinstall flashinfer-python && \
-    pip -v --python /opt/venv/bin/python install --no-binary :all: --no-build-isolation lmcache==0.3.6
+    --mount=type=cache,target=/root/.ccache,sharing=locked <<EOF
+set -eux
+if [ -n "${JOBS}" ]; then
+  export MAX_JOBS=${JOBS}
+  export CMAKE_BUILD_PARALLEL_LEVEL=${JOBS}
+  export MAKEFLAGS=-j${JOBS}
+fi
+uv pip uninstall --python /opt/venv/bin/python lmcache flashinfer-python
+uv pip install --python /opt/venv/bin/python --no-binary flashinfer-python --force-reinstall flashinfer-python
+pip -v --python /opt/venv/bin/python install --no-binary :all: --no-build-isolation lmcache==0.3.6
+EOF
 
 # Ensure the nightly numerical stack is installed consistently
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \

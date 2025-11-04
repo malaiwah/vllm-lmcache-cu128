@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-sm120:
     runs-on: self-hosted
 
     steps:
@@ -27,17 +27,21 @@ jobs:
       run: |
         echo "${{ secrets.DOCKERHUB_TOKEN }}" | podman login docker.io -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
 
-    - name: Build the container
+    - name: Build the SM120 container
       run: |
-        podman build -t malaiwah/vllm-lmcache-cu128:uv312 -f Containerfile .
+        podman build \
+          --build-arg CUDA_ARCH_LIST_PTX="12.0+PTX" \
+          --build-arg CUDA_ARCH_LIST_NUMERIC="120" \
+          -t malaiwah/vllm-lmcache-cu128:uv312-sm120 \
+          -f Containerfile .
 
-    - name: Push the container
+    - name: Push the SM120 container
       run: |
-        podman push malaiwah/vllm-lmcache-cu128:uv312
+        podman push malaiwah/vllm-lmcache-cu128:uv312-sm120
 
-    - name: Log image size
+    - name: Log SM120 image size
       run: |
-        size=$(podman inspect malaiwah/vllm-lmcache-cu128:uv312 --format "{{.Size}}")
+        size=$(podman inspect malaiwah/vllm-lmcache-cu128:uv312-sm120 --format "{{.Size}}")
         echo "Image size: $(($size / 1024 / 1024)) MB"
 
     - name: Install Cosign
@@ -46,10 +50,10 @@ jobs:
         curl -L https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64 -o bin/cosign
         chmod +x bin/cosign
 
-    - name: Sign the image
+    - name: Sign the SM120 image
       run: |
         echo "${{ secrets.COSIGN_PRIVATE_KEY }}" > cosign.key
-        bin/cosign sign --key cosign.key --yes --registry-username ${{ secrets.DOCKERHUB_USERNAME }} --registry-password ${{ secrets.DOCKERHUB_TOKEN }} malaiwah/vllm-lmcache-cu128:uv312
+        bin/cosign sign --key cosign.key --yes --registry-username ${{ secrets.DOCKERHUB_USERNAME }} --registry-password ${{ secrets.DOCKERHUB_TOKEN }} malaiwah/vllm-lmcache-cu128:uv312-sm120
         rm cosign.key
       env:
         COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
@@ -60,9 +64,9 @@ jobs:
         build_time=$((end_time - START_TIME))
         echo "Build time: $build_time seconds"
 
-  test:
+  test-sm120:
     runs-on: self-hosted
-    needs: build
+    needs: build-sm120
     steps:
     - name: Checkout
       uses: actions/checkout@v5
@@ -75,9 +79,11 @@ jobs:
 
     #- name: Verify signature
     #  run: |
-    #    bin/cosign verify --key cosign.pub malaiwah/vllm-lmcache-cu128:uv312
+    #    bin/cosign verify --key cosign.pub malaiwah/vllm-lmcache-cu128:uv312-sm120
 
     - name: Run test
+      env:
+        IMAGE_NAME: malaiwah/vllm-lmcache-cu128:uv312-sm120
       run: |
         chmod +x test.sh
         ./test.sh
@@ -87,3 +93,111 @@ jobs:
       with:
         name: test_output
         path: test_output.txt
+
+  build-sm89:
+    if: github.event_name == 'push'
+    runs-on: self-hosted
+    needs: test-sm120
+
+    steps:
+    - name: Set start time
+      run: echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
+
+    - name: Checkout
+      uses: actions/checkout@v5
+
+    - name: Login to Docker Hub
+      run: |
+        echo "${{ secrets.DOCKERHUB_TOKEN }}" | podman login docker.io -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+
+    - name: Build the SM89 container
+      run: |
+        podman build \
+          --build-arg CUDA_ARCH_LIST_PTX="8.9+PTX" \
+          --build-arg CUDA_ARCH_LIST_NUMERIC="89" \
+          --build-arg JOBS=8 \
+          -t malaiwah/vllm-lmcache-cu128:uv312-sm89 \
+          -f Containerfile .
+
+    - name: Push the SM89 container
+      run: |
+        podman push malaiwah/vllm-lmcache-cu128:uv312-sm89
+
+    - name: Log SM89 image size
+      run: |
+        size=$(podman inspect malaiwah/vllm-lmcache-cu128:uv312-sm89 --format "{{.Size}}")
+        echo "Image size: $(($size / 1024 / 1024)) MB"
+
+    - name: Install Cosign
+      run: |
+        mkdir -p bin
+        curl -L https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64 -o bin/cosign
+        chmod +x bin/cosign
+
+    - name: Sign the SM89 image
+      run: |
+        echo "${{ secrets.COSIGN_PRIVATE_KEY }}" > cosign.key
+        bin/cosign sign --key cosign.key --yes --registry-username ${{ secrets.DOCKERHUB_USERNAME }} --registry-password ${{ secrets.DOCKERHUB_TOKEN }} malaiwah/vllm-lmcache-cu128:uv312-sm89
+        rm cosign.key
+      env:
+        COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+
+    - name: Log build time
+      run: |
+        end_time=$(date +%s)
+        build_time=$((end_time - START_TIME))
+        echo "Build time: $build_time seconds"
+
+  build-sm100:
+    if: github.event_name == 'push'
+    runs-on: self-hosted
+    needs: test-sm120
+
+    steps:
+    - name: Set start time
+      run: echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
+
+    - name: Checkout
+      uses: actions/checkout@v5
+
+    - name: Login to Docker Hub
+      run: |
+        echo "${{ secrets.DOCKERHUB_TOKEN }}" | podman login docker.io -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+
+    - name: Build the SM100 container
+      run: |
+        podman build \
+          --build-arg CUDA_ARCH_LIST_PTX="10.0+PTX" \
+          --build-arg CUDA_ARCH_LIST_NUMERIC="100" \
+          --build-arg JOBS=8 \
+          -t malaiwah/vllm-lmcache-cu128:uv312-sm100 \
+          -f Containerfile .
+
+    - name: Push the SM100 container
+      run: |
+        podman push malaiwah/vllm-lmcache-cu128:uv312-sm100
+
+    - name: Log SM100 image size
+      run: |
+        size=$(podman inspect malaiwah/vllm-lmcache-cu128:uv312-sm100 --format "{{.Size}}")
+        echo "Image size: $(($size / 1024 / 1024)) MB"
+
+    - name: Install Cosign
+      run: |
+        mkdir -p bin
+        curl -L https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64 -o bin/cosign
+        chmod +x bin/cosign
+
+    - name: Sign the SM100 image
+      run: |
+        echo "${{ secrets.COSIGN_PRIVATE_KEY }}" > cosign.key
+        bin/cosign sign --key cosign.key --yes --registry-username ${{ secrets.DOCKERHUB_USERNAME }} --registry-password ${{ secrets.DOCKERHUB_TOKEN }} malaiwah/vllm-lmcache-cu128:uv312-sm100
+        rm cosign.key
+      env:
+        COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+
+    - name: Log build time
+      run: |
+        end_time=$(date +%s)
+        build_time=$((end_time - START_TIME))
+        echo "Build time: $build_time seconds"
