@@ -131,7 +131,8 @@ WORKDIR /opt/app
 # Build the pinned xFormers wheel locally to satisfy vLLM's dependency.
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
-    --mount=type=cache,target=/root/.cache/ccache,sharing=locked <<EOF
+    --mount=type=cache,target=/root/.cache/ccache,sharing=locked \
+    /bin/sh <<EOF
 set -eux
 if [ -n "${JOBS}" ]; then
   export MAX_JOBS=${JOBS}
@@ -165,7 +166,8 @@ WORKDIR /opt/app/vllm
 
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
-    --mount=type=cache,target=/root/.ccache,sharing=locked <<EOF
+    --mount=type=cache,target=/root/.ccache,sharing=locked \
+    /bin/sh <<EOF
 set -eux
 if [ -n "${JOBS}" ]; then
   export MAX_JOBS=${JOBS}
@@ -180,7 +182,8 @@ WORKDIR /opt/app
 # Force recompile for Blackwell support
 RUN --mount=type=cache,target=/root/.cache/uv,uid=0,gid=0,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip,uid=0,gid=0,sharing=locked \
-    --mount=type=cache,target=/root/.ccache,sharing=locked <<EOF
+    --mount=type=cache,target=/root/.ccache,sharing=locked \
+    /bin/sh <<EOF
 set -eux
 if [ -n "${JOBS}" ]; then
   export MAX_JOBS=${JOBS}
