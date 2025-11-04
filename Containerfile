@@ -11,6 +11,8 @@ ARG XFORMERS_VERSION=0.0.33+5d4b92a5.d20251029
 ARG XFORMERS_MAX_JOBS=16
 ARG CUDA_ARCH_LIST_PTX="8.9+PTX;10.0+PTX;12.0+PTX"
 ARG CUDA_ARCH_LIST_NUMERIC="89;100;120"
+ARG SCCACHE_ENABLED=0
+ARG CMAKE_LAUNCHER_ARGS=""
 
 FROM docker.io/nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04@${CUDA_BUILD_DIGEST} AS build-base
 ARG TORCH_NIGHTLY_INDEX
@@ -21,6 +23,9 @@ ARG XFORMERS_VERSION
 ARG UV_PRERELEASE
 ARG CUDA_ARCH_LIST_PTX
 ARG CUDA_ARCH_LIST_NUMERIC
+ARG SCCACHE_ENABLED
+ARG CMAKE_LAUNCHER_ARGS
+ENV SCCACHE_ENABLED=${SCCACHE_ENABLED}
 # Update packages, except the pinned ones
 RUN apt-get update && apt-get dist-upgrade -y && apt-get clean
 
@@ -58,15 +63,20 @@ ENV PATH=/opt/venv/bin:/root/.local/bin:$PATH
 ENV UV_PYTHON_PREFER_PREBUILT=1
 ENV UV_LINK_MODE=copy
 
-# Tell CMake to launch compilers via sccache
-ENV CMAKE_ARGS="-DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_CUDA_COMPILER_LAUNCHER=sccache"
+# Allow callers to provide additional CMake arguments (e.g. to enable sccache).
+ENV CMAKE_ARGS=${CMAKE_LAUNCHER_ARGS}
 ENV LD_LIBRARY_PATH=/opt/venv/lib/python3.12/site-packages/torch/lib:$LD_LIBRARY_PATH
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
-    apt-get update && apt-get install -y --no-install-recommends \
-      git build-essential curl ca-certificates pkg-config python3 python3-pip python3-dev ninja-build sccache cmake \
-    && apt-get clean
+    set -eux; \
+    apt-get update; \
+    packages="git build-essential curl ca-certificates pkg-config python3 python3-pip python3-dev ninja-build cmake"; \
+    if [ "${SCCACHE_ENABLED}" = "1" ]; then \
+      packages="$packages sccache"; \
+    fi; \
+    apt-get install -y --no-install-recommends $packages; \
+    apt-get clean
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
