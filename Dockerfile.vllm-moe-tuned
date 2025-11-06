@@ -1,0 +1,22 @@
+FROM docker.io/vllm/vllm-openai:nightly
+
+# Tools to fetch tuner script
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/*
+
+# Put TF32 fast paths (harmless, sometimes a few %)
+ENV TORCH_ALLOW_TF32_CUBLAS=1 \
+    TORCH_CUDNN_ALLOW_TF32=1
+
+# Paths inside the vLLM wheel
+ENV VLLM_MOE_CFG_DIR=/usr/local/lib/python3.12/dist-packages/vllm/model_executor/layers/fused_moe/configs
+WORKDIR /opt/moe-tuner
+
+# Fetch just the MoE benchmark script from upstream
+# (If this URL changes upstream, you can clone repo and copy the file instead.)
+# Using git sparse-checkout pattern to avoid pulling the whole repo history.
+RUN git init . \
+ && git remote add origin https://github.com/vllm-project/vllm.git \
+ && git fetch --depth=1 origin main \
+ && git checkout -b main FETCH_HEAD \
+ && mkdir -p vllm/benchmarks/kernels \
+ && cp python/vllm/benchmarks/kernels/benchmark_moe.py vllm/benchmarks/kernels/benchmark_moe.py
